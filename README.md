@@ -1,56 +1,158 @@
-# Welcome to your Expo app 👋
+<!-- Logo incluido en este repositorio -->
+<p align="center">
+  <img src="assets/foco-icon-dark.png" alt="Logo de Foco" width="144" />
+</p>
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+<h1 align="center">Foco</h1>
 
-## Get started
+<p align="center">Organiza tus estudios y proyectos personales con calma, claridad y un plan diario.</p>
+<p align="center">Aplicación móvil creada con Expo, React Native y TypeScript.</p>
 
-1. Install dependencies
+## Características
 
-   ```bash
-   npm install
-   ```
+| Área | Qué puedes hacer |
+| --- | --- |
+| Inicio | Consultar el progreso diario, las tareas de hoy, el siguiente bloque del horario y un objetivo destacado. |
+| Tareas | Crear, editar, completar y filtrar tareas por fecha, prioridad, asignatura, proyecto u objetivo. |
+| Asignaturas | Gestionar asignaturas, sus colores y su orden. |
+| Objetivos y proyectos | Definir objetivos y gestionar proyectos personales con tareas y progreso. |
+| Horario | Crear bloques semanales de estudio o proyectos y consultar el horario de hoy o de la semana. |
+| Asistente | Recibir sugerencias locales o conectar un backend propio. Las propuestas se aceptan antes de guardarse. |
+| Personalización | Elegir tema del sistema, claro u oscuro; configurar recordatorios y preferencias de progreso. |
+| Datos de ejemplo | Cargar datos para probar la app durante el desarrollo. |
 
-2. Start the app
+El estado se guarda localmente en el dispositivo con Zustand y AsyncStorage. No hace falta crear una cuenta.
 
-   ```bash
-   npx expo start
-   ```
+## Tecnologías
 
-In the output, you'll find options to open the app in a
+- Expo SDK 57, React Native 0.86 y TypeScript.
+- Expo Router para rutas y pestañas.
+- Zustand persistido en AsyncStorage.
+- expo-notifications para recordatorios locales.
+- expo-haptics, react-native-svg, React Native Reanimated y date-fns.
+- Selectores nativos de fecha y categoría compatibles con Expo Go.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Requisitos
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- Node.js 22.13 o posterior y npm.
+- Para ejecutar el simulador o compilar iOS localmente: macOS, Xcode compatible con Expo SDK 57 y un simulador de iOS. Consulta los [requisitos de Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/) antes de actualizar Xcode.
+- Para Expo Go: un iPhone o dispositivo Android con Expo Go instalado.
 
-## Get a fresh project
+## Empezar
 
-When you're ready, run:
+Instala las dependencias:
 
-```bash
-npm run reset-project
-```
+~~~bash
+npm install
+~~~
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Arranca Expo:
 
-### Other setup steps
+~~~bash
+npx expo start
+~~~
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Escanea el código QR con Expo Go. En macOS, pulsa i para abrir el simulador de iOS; para Android, ejecuta npx expo start --android.
 
-## Learn more
+Comandos disponibles:
 
-To learn more about developing your project with Expo, look at the following resources:
+~~~bash
+npm run ios       # inicia Expo y abre el simulador de iOS
+npm run android   # inicia Expo y abre Android
+npm run web       # inicia la versión web
+npm run lint      # ejecuta ESLint mediante Expo
+npm run typecheck # comprueba TypeScript sin emitir archivos
+~~~
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Expo Go y compilaciones nativas
 
-## Join the community
+Las funciones implementadas usan módulos incluidos en Expo Go, incluidos los selectores de fecha y expo-notifications para programar notificaciones locales. No hace falta un development build para probar este flujo local en un dispositivo compatible. Las notificaciones push remotas no están implementadas; Expo Go en Android no las admite. Consulta la [documentación de notificaciones de Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/notifications/).
 
-Join our community of developers creating universal apps.
+Para compilar y ejecutar la app nativa localmente en iOS necesitas macOS y Xcode:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+~~~bash
+npx expo run:ios
+~~~
+
+El comando genera los proyectos nativos cuando hace falta. Este repositorio usa Continuous Native Generation: no guardes cambios manuales dentro de ios/ o android/; configura esos cambios en Expo o mediante config plugins.
+
+## Asistente y backend de IA
+
+Sin una URL configurada, el asistente usa MockAIService: una demostración local que prepara tareas y un bloque horario para que decidas si aceptarlos. No llama a un proveedor de IA.
+
+Para conectar un proveedor real:
+
+1. Crea un backend o función serverless con un endpoint HTTPS POST, por ejemplo /api/foco.
+2. Guarda la clave del proveedor como secreto en el servidor. **Nunca incluyas claves privadas en la app ni en variables EXPO_PUBLIC_.**
+3. En Ajustes → Asistente de IA, guarda la URL del endpoint.
+4. Acepta Content-Type: application/json y un cuerpo con esta forma:
+
+   ~~~json
+   {
+     "message": "Ayúdame a organizar la semana",
+     "context": {
+       "subjects": [],
+       "projects": [],
+       "tasks": [],
+       "goals": [],
+       "scheduleBlocks": []
+     }
+   }
+   ~~~
+
+5. Devuelve JSON con message y suggestions. Cada propuesta debe seguir uno de los tipos definidos en src/services/ai-service.ts: task, scheduleBlock o priority.
+
+El contrato está en src/services/ai-service.ts. BackendAIService contiene la llamada HTTP y AIService permite cambiar de proveedor. Valida en el servidor las salidas del modelo. Al configurar el endpoint, la app envía el contexto de asignaturas, proyectos, tareas, objetivos y horario; usa un servidor de confianza y explica a tus usuarios cómo tratará esos datos.
+
+## Datos y sincronización
+
+Foco guarda todo en el dispositivo (Zustand + AsyncStorage) y funciona sin conexión. La sincronización con una cuenta está preparada, pero desactivada: llegará con el inicio de sesión con Apple y Google.
+
+- src/data/sync-engine.ts apunta qué registros cambian (en un almacén aparte, foco-sync-v1) sin tocar las pantallas. Sin almacén remoto configurado, syncNow() no hace nada.
+- src/data/sync-logic.ts contiene la lógica pura: detectar cambios, fusionar con «gana la edición más reciente» y preparar lo pendiente. Al vincular una cuenta se suben todos los datos locales, así que no se pierde nada.
+- Para añadir una entidad sincronizada, regístrala en src/data/entities.ts y en el check de entity de la migración.
+
+### Supabase
+
+El backend elegido es Supabase. El esquema está en supabase/migrations/: una tabla user_records con una fila por registro y usuario.
+
+**Row Level Security es obligatorio en todas las tablas.** Cada tabla nueva debe:
+
+1. Activar RLS: alter table ... enable row level security.
+2. Tener políticas de select, insert, update y delete limitadas a to authenticated y a (select auth.uid()) = user_id.
+3. Revocar los permisos por defecto de anon y authenticated, y conceder solo los necesarios.
+
+Después de cada migración, ejecuta supabase/tests/rls_check.sql: debe devolver cero filas. La app solo usa la clave publicable; la clave service_role nunca va en la app.
+
+## Estructura
+
+~~~text
+src/
+├── app/           # rutas Expo Router: pestañas, entrada y onboarding
+├── components/    # componentes compartidos
+├── data/          # capa de sincronización (local ahora, Supabase después)
+├── features/      # inicio, tareas, objetivos, perfil y entrada
+├── services/      # asistente, recordatorios y datos de demostración
+├── store/         # estado global y persistencia local
+├── theme/         # colores, espaciado y tema
+├── types/         # modelos TypeScript
+└── utils/         # funciones auxiliares
+assets/            # iconos y splash de Foco para tema claro y oscuro
+supabase/          # migraciones SQL y comprobación de RLS
+~~~
+
+## Hoja de ruta
+
+- [x] Estructura, tema y componentes base.
+- [x] Modelos de datos y persistencia local.
+- [x] Asignaturas y proyectos personales.
+- [x] Tareas, filtros y progreso diario.
+- [x] Objetivos vinculados a tareas.
+- [x] Horario semanal y vista de hoy.
+- [x] Asistente con mock local y contrato para backend.
+- [x] Inicio, preferencias, recordatorios y datos de ejemplo.
+- [x] Pulido visual, accesibilidad, documentación y configuración de Git.
+
+## Licencia
+
+Este proyecto se distribuye bajo la licencia MIT. Consulta [LICENSE](LICENSE).

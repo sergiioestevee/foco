@@ -1,0 +1,213 @@
+import { Link } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+
+import { ActionButton } from '@/components/action-button';
+import { AppScreen } from '@/components/app-screen';
+import { ScreenHeader } from '@/components/screen-header';
+import { Surface } from '@/components/surface';
+import { Typography } from '@/components/typography';
+import { useFocoStore } from '@/store/use-foco-store';
+import { requestTaskReminderPermission } from '@/services/notification-service';
+import { useTheme } from '@/theme/use-theme';
+import { fonts } from '@/theme/fonts';
+import { radii, spacing } from '@/theme/tokens';
+import type { ThemeMode } from '@/types/models';
+
+const themeOptions: { value: ThemeMode; label: string }[] = [
+  { value: 'system', label: 'Sistema' },
+  { value: 'light', label: 'Claro' },
+  { value: 'dark', label: 'Oscuro' },
+];
+const reminderOptions = [5, 10, 15, 30, 60];
+
+export default function ProfileScreen() {
+  const theme = useTheme();
+  const settings = useFocoStore((state) => state.settings);
+  const updateSettings = useFocoStore((state) => state.updateSettings);
+  const loadDemoData = useFocoStore((state) => state.loadDemoData);
+  const clearData = useFocoStore((state) => state.clearData);
+  const [aiBackendUrl, setAiBackendUrl] = useState(settings.aiBackendUrl ?? '');
+  const [showDemoNotice, setShowDemoNotice] = useState(false);
+  const [backendSaved, setBackendSaved] = useState(false);
+
+  const confirmReset = () => {
+    Alert.alert(
+      'Empezar desde cero',
+      'Se borrarán tu perfil, asignaturas, tareas, objetivos, proyectos, horario y preferencias. Después podrás configurar Foco de nuevo.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Restablecer', style: 'destructive', onPress: clearData },
+      ],
+    );
+  };
+
+  const handleNotificationsChange = async (enabled: boolean) => {
+    if (!enabled) {
+      updateSettings({ notificationsEnabled: false });
+      return;
+    }
+    try {
+      const granted = await requestTaskReminderPermission();
+      if (granted) updateSettings({ notificationsEnabled: true });
+      else Alert.alert('Permiso no concedido', 'Activa las notificaciones de Foco en los ajustes del dispositivo para recibir recordatorios.');
+    } catch {
+      Alert.alert('No se pudieron activar', 'Inténtalo de nuevo desde los ajustes del dispositivo.');
+    }
+  };
+
+  return (
+    <AppScreen>
+      <ScreenHeader title="Perfil" subtitle="Tu cuenta y tus preferencias." />
+
+      <Surface style={styles.section}>
+        <Typography kind="heading">Tu perfil</Typography>
+        <Typography kind="secondary">Actualiza tu nombre, lo que estudias, tus asignaturas y cuándo te concentras mejor.</Typography>
+        <Link href="/onboarding" asChild>
+          <ActionButton label="Editar mi perfil" variant="secondary" />
+        </Link>
+      </Surface>
+
+      <Surface style={styles.section}>
+        <Typography kind="heading">Apariencia</Typography>
+        <Typography kind="secondary">Foco puede seguir tu sistema o usar un tema fijo.</Typography>
+        <View style={styles.choices} accessibilityRole="radiogroup">
+          {themeOptions.map((option) => {
+            const selected = settings.themeMode === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                onPress={() => updateSettings({ themeMode: option.value })}
+                style={[styles.choice, { backgroundColor: selected ? theme.accent : theme.track }]}>
+                <Typography style={{ color: selected ? theme.accentInk : theme.text, fontWeight: '600' }}>
+                  {option.label}
+                </Typography>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Surface>
+
+      <Surface style={styles.section}>
+        <Typography kind="heading">Progreso diario</Typography>
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Typography>Incluir tareas atrasadas</Typography>
+            <Typography kind="caption">También cuentan para el porcentaje del día.</Typography>
+          </View>
+          <Switch
+            accessibilityLabel="Incluir tareas atrasadas en el progreso diario"
+            value={settings.includeOverdueInDailyProgress}
+            onValueChange={(value) => updateSettings({ includeOverdueInDailyProgress: value })}
+            trackColor={{ true: theme.accent, false: theme.line }}
+          />
+        </View>
+      </Surface>
+
+      <Surface style={styles.section}>
+        <Typography kind="heading">Recordatorios</Typography>
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Typography>Recordatorios de tareas</Typography>
+            <Typography kind="caption">Aviso antes de la hora límite estimada de las 18:00.</Typography>
+          </View>
+          <Switch
+            accessibilityLabel="Activar recordatorios de tareas"
+            disabled={Platform.OS === 'web'}
+            value={settings.notificationsEnabled}
+            onValueChange={(value) => void handleNotificationsChange(value)}
+            trackColor={{ true: theme.accent, false: theme.line }}
+          />
+        </View>
+        {Platform.OS === 'web' ? <Typography kind="caption">Los recordatorios están disponibles en iOS y Android.</Typography> : null}
+        {settings.notificationsEnabled ? (
+          <>
+            <Typography kind="caption">Antelación</Typography>
+            <View style={styles.reminderOptions} accessibilityRole="radiogroup">
+              {reminderOptions.map((minutes) => {
+                const selected = settings.reminderMinutesBefore === minutes;
+                return (
+                  <Pressable
+                    key={minutes}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${minutes} minutos antes`}
+                    accessibilityState={{ selected }}
+                    onPress={() => updateSettings({ reminderMinutesBefore: minutes })}
+                    style={[styles.reminderChoice, { backgroundColor: selected ? theme.accent : theme.track }]}>
+                    <Typography style={{ color: selected ? theme.accentInk : theme.text, fontWeight: '600' }}>{minutes} min</Typography>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+      </Surface>
+
+      <Surface style={styles.section}>
+        <Typography kind="heading">Asistente de IA</Typography>
+        <Typography kind="secondary">Sin endpoint configurado, el asistente usa sugerencias locales de demostración. Puedes conectar un backend propio aquí.</Typography>
+        <TextInput
+          accessibilityLabel="URL del backend privado del asistente"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          onChangeText={(value) => { setAiBackendUrl(value); setBackendSaved(false); }}
+          placeholder="https://tu-servidor.example/api/foco"
+          placeholderTextColor={theme.muted}
+          style={[styles.endpointInput, { backgroundColor: theme.bg, borderColor: theme.line, color: theme.text }]}
+          value={aiBackendUrl}
+        />
+        <Typography kind="caption">No introduzcas una clave de API en la app. Configúrala en el servidor; al usar un endpoint, el contexto de Foco se enviará a ese backend.</Typography>
+        <ActionButton
+          label={backendSaved ? 'Endpoint guardado' : 'Guardar endpoint'}
+          variant="secondary"
+          onPress={() => {
+            updateSettings({ aiBackendUrl: aiBackendUrl.trim() });
+            setBackendSaved(true);
+          }}
+        />
+      </Surface>
+
+      <Surface style={styles.section}>
+        <Typography kind="heading">Asignaturas</Typography>
+        <Link href="/subjects" asChild>
+          <ActionButton label="Mis asignaturas" variant="secondary" />
+        </Link>
+      </Surface>
+
+      {__DEV__ ? (
+        <Surface style={styles.section}>
+          <Typography kind="heading">Datos de ejemplo</Typography>
+          <Typography kind="secondary">Carga asignaturas, proyectos, objetivos, tareas y horario para probar Foco.</Typography>
+          <ActionButton
+            label={showDemoNotice ? 'Datos de ejemplo cargados' : 'Cargar datos de ejemplo'}
+            variant="secondary"
+            onPress={() => {
+              loadDemoData();
+              setShowDemoNotice(true);
+            }}
+          />
+        </Surface>
+      ) : null}
+
+      <Surface style={styles.section}>
+        <Typography kind="heading">Empezar desde cero</Typography>
+        <Typography kind="secondary">Vuelve al inicio para probar el onboarding otra vez.</Typography>
+        <ActionButton label="Restablecer la app" variant="secondary" onPress={confirmReset} />
+      </Surface>
+    </AppScreen>
+  );
+}
+
+const styles = StyleSheet.create({
+  section: { gap: spacing.md, marginBottom: spacing.md },
+  choices: { flexDirection: 'row', gap: spacing.xs },
+  choice: { minHeight: 42, flex: 1, paddingHorizontal: spacing.sm, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  settingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  settingCopy: { flex: 1, gap: spacing.xxs },
+  reminderOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  reminderChoice: { minHeight: 40, minWidth: 56, paddingHorizontal: spacing.sm, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  endpointInput: { minHeight: 48, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 15, fontFamily: fonts.medium },
+});

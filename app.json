@@ -1,42 +1,58 @@
 {
   "expo": {
-    "name": "foco",
+    "name": "Foco",
     "slug": "foco",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/foco-icon-dark.png",
     "scheme": "foco",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": {
+        "light": "./assets/foco-icon-light.png",
+        "dark": "./assets/foco-icon-dark.png"
+      },
+      "supportsTablet": false
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#0A0A0E",
+        "foregroundImage": "./assets/foco-icon-dark.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/foco-icon-dark.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#F4F4F7",
+          "image": "./assets/splash-logo-light.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#0E0F13",
+            "image": "./assets/splash-logo-dark.png"
+          }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e8232f24-589a-4958-b76d-5cd34649d68b"
+      }
+    },
+    "owner": "sergiioesteveees-team"
   }
 }
