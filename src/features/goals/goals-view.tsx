@@ -1,8 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Link } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useImperativeHandle, useMemo, useState, type Ref } from 'react';
 import { Alert, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
@@ -10,15 +9,16 @@ import { AppScreen } from '@/components/app-screen';
 import { CategoryPicker } from '@/components/category-picker';
 import { ScreenHeader } from '@/components/screen-header';
 import { Surface } from '@/components/surface';
-import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
 import { useFocoStore } from '@/store/use-foco-store';
 import { useTheme } from '@/theme/use-theme';
 import { fonts } from '@/theme/fonts';
 import { categoryColors, minTouchSize, radii, spacing } from '@/theme/tokens';
+import type { CreateHandle } from '@/types/create-handle';
 import type { CategorySelection, Goal, GoalStatus, PersonalProject, ProjectStatus } from '@/types/models';
 
-export type GoalsViewMode = 'goals' | 'projects';
+import { ProgressCard } from './progress-card';
+
 const statusOptions: { value: ProjectStatus; label: string }[] = [
   { value: 'active', label: 'Activo' },
   { value: 'paused', label: 'Pausado' },
@@ -30,8 +30,8 @@ const goalStatusOptions: { value: GoalStatus; label: string }[] = [
   { value: 'achieved', label: 'Logrado' },
 ];
 
-/** Goals and personal projects, shown as segments of the Tareas tab. */
-export function GoalsView({ mode }: { mode: GoalsViewMode }) {
+/** Metas segment of the Tareas tab: goals and personal projects, each with its progress ring. */
+export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>> }) {
   const theme = useTheme();
   const subjectItems = useFocoStore((state) => state.subjects);
   const subjects = useMemo(() => [...subjectItems].sort((a, b) => a.order - b.order), [subjectItems]);
@@ -144,16 +144,17 @@ export function GoalsView({ mode }: { mode: GoalsViewMode }) {
     );
   };
 
+  useImperativeHandle(ref, () => ({
+    create: (kind) => (kind === 'project' ? openEditor() : openGoalEditor()),
+  }));
+
   return (
     <>
-      {mode === 'goals' ? (
+      <View style={styles.sections}>
         <View style={styles.list}>
-          <Typography kind="secondary">Define lo que quieres conseguir y vincula tareas para seguir tu avance.</Typography>
-          {goals.length ? <ActionButton label="Nuevo objetivo" variant="secondary" onPress={() => openGoalEditor()} /> : null}
+          <Typography kind="heading">Objetivos</Typography>
           {goals.length ? goals.map((goal) => {
             const goalTasks = tasks.filter((task) => task.goalId === goal.id);
-            const completedTasks = goalTasks.filter((task) => task.completed).length;
-            const progress = goalTasks.length ? Math.round(completedTasks / goalTasks.length * 100) : 0;
             const target = goal.targetDate ? new Date(goal.targetDate) : null;
             const category = goal.categoryType === 'subject'
               ? subjects.find((subject) => subject.id === goal.categoryId)
@@ -161,94 +162,58 @@ export function GoalsView({ mode }: { mode: GoalsViewMode }) {
                 ? projects.find((project) => project.id === goal.categoryId)
                 : undefined;
             return (
-              <Surface key={goal.id} style={styles.goalCard}>
-                <View style={styles.projectTop}>
-                  <View style={[styles.categoryDot, { backgroundColor: category?.color ?? theme.accent }]} />
-                  <View style={styles.cardCopy}>
-                    <Typography kind="heading">{goal.title}</Typography>
-                    <Typography kind="caption">
-                      {goalStatusOptions.find((option) => option.value === goal.status)?.label}
-                      {category ? ` · ${category.name}` : ''}
-                      {target && isValid(target) ? ` · Meta ${format(target, 'd MMM', { locale: es })}` : ''}
-                    </Typography>
-                  </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Editar objetivo ${goal.title}`} onPress={() => openGoalEditor(goal)} style={styles.iconButton}>
-                    <SymbolIcon ios="pencil" other="edit" color={theme.accent} size={18} />
-                  </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Eliminar objetivo ${goal.title}`} onPress={() => removeGoal(goal)} style={styles.iconButton}>
-                    <SymbolIcon ios="trash" other="delete" color={theme.danger} size={18} />
-                  </Pressable>
-                </View>
-                {goal.description ? <Typography kind="secondary">{goal.description}</Typography> : null}
-                <View style={styles.progressRow}>
-                  <View style={[styles.progressTrack, { backgroundColor: theme.track }]}>
-                    <View style={[styles.progressFill, { backgroundColor: category?.color ?? theme.accent, width: `${progress}%` }]} />
-                  </View>
-                  <Typography kind="caption">{completedTasks}/{goalTasks.length} · {progress}%</Typography>
-                </View>
-                <View style={styles.projectActions}>
-                  <Link href={{ pathname: '/tasks', params: { goalId: goal.id } }} asChild>
-                    <ActionButton label={goalTasks.length ? 'Ver tareas' : 'Añadir tarea'} variant="secondary" />
-                  </Link>
-                  <ActionButton label="Editar objetivo" variant="plain" onPress={() => openGoalEditor(goal)} />
-                </View>
-              </Surface>
+              <ProgressCard
+                key={goal.id}
+                title={goal.title}
+                meta={[
+                  goalStatusOptions.find((option) => option.value === goal.status)?.label,
+                  category?.name,
+                  target && isValid(target) ? `Meta ${format(target, 'd MMM', { locale: es })}` : null,
+                ]}
+                description={goal.description}
+                completed={goalTasks.filter((task) => task.completed).length}
+                total={goalTasks.length}
+                onPress={() => openGoalEditor(goal)}
+                tasksLink={{ pathname: '/tasks', params: { goalId: goal.id } }}
+              />
             );
           }) : (
             <Surface style={styles.empty}>
-              <Typography kind="heading">Empieza por un objetivo</Typography>
-              <Typography kind="secondary">Puede ser preparar un examen, mejorar en una asignatura o terminar un proyecto.</Typography>
-              <ActionButton label="Crear objetivo" onPress={() => openGoalEditor()} />
+              <Typography kind="secondary">Define lo que quieres conseguir, como preparar un examen o mejorar en una asignatura, y vincula tareas para seguir tu avance.</Typography>
+              <ActionButton label="Crear objetivo" variant="secondary" onPress={() => openGoalEditor()} />
             </Surface>
           )}
         </View>
-      ) : (
+
         <View style={styles.list}>
-          {projects.length ? <ActionButton label="Nuevo proyecto" variant="secondary" onPress={() => openEditor()} /> : null}
+          <Typography kind="heading">Proyectos</Typography>
           {projects.length ? projects.map((project) => {
             const projectTasks = tasks.filter((task) => task.categoryType === 'project' && task.categoryId === project.id);
-            const completed = projectTasks.filter((task) => task.completed).length;
-            const progress = projectTasks.length ? Math.round(completed / projectTasks.length * 100) : 0;
             const target = project.targetDate ? new Date(project.targetDate) : null;
             return (
-              <Surface key={project.id} style={styles.projectCard}>
-                <View style={styles.projectTop}>
-                  <View style={[styles.categoryDot, { backgroundColor: project.color }]} />
-                  <View style={styles.cardCopy}>
-                    <Typography kind="heading">{project.name}</Typography>
-                    <Typography kind="caption">{statusOptions.find((option) => option.value === project.status)?.label}{target && isValid(target) ? ` · Meta ${format(target, 'd MMM', { locale: es })}` : ''}</Typography>
-                  </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${project.name}`} onPress={() => openEditor(project)} style={styles.iconButton}>
-                    <SymbolIcon ios="pencil" other="edit" color={theme.accent} size={18} />
-                  </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Eliminar ${project.name}`} onPress={() => removeProject(project)} style={styles.iconButton}>
-                    <SymbolIcon ios="trash" other="delete" color={theme.danger} size={18} />
-                  </Pressable>
-                </View>
-                {project.description ? <Typography kind="secondary">{project.description}</Typography> : null}
-                <View style={styles.progressRow}>
-                  <View style={[styles.progressTrack, { backgroundColor: theme.track }]}>
-                    <View style={[styles.progressFill, { backgroundColor: project.color, width: `${progress}%` }]} />
-                  </View>
-                  <Typography kind="caption">{completed}/{projectTasks.length} · {progress}%</Typography>
-                </View>
-                <View style={styles.projectActions}>
-                  <Link href={{ pathname: '/tasks', params: { categoryId: project.id, categoryType: 'project' } }} asChild>
-                    <ActionButton label="Ver tareas" variant="secondary" />
-                  </Link>
-                  <ActionButton label="Editar proyecto" variant="plain" onPress={() => openEditor(project)} />
-                </View>
-              </Surface>
+              <ProgressCard
+                key={project.id}
+                title={project.name}
+                color={project.color}
+                meta={[
+                  statusOptions.find((option) => option.value === project.status)?.label,
+                  target && isValid(target) ? `Meta ${format(target, 'd MMM', { locale: es })}` : null,
+                ]}
+                description={project.description}
+                completed={projectTasks.filter((task) => task.completed).length}
+                total={projectTasks.length}
+                onPress={() => openEditor(project)}
+                tasksLink={{ pathname: '/tasks', params: { categoryId: project.id, categoryType: 'project' } }}
+              />
             );
           }) : (
             <Surface style={styles.empty}>
-              <Typography kind="heading">Un proyecto para ti</Typography>
               <Typography kind="secondary">Organiza aquí una idea, una meta personal o algo que quieras aprender.</Typography>
-              <ActionButton label="Crear proyecto" onPress={() => openEditor()} />
+              <ActionButton label="Crear proyecto" variant="secondary" onPress={() => openEditor()} />
             </Surface>
           )}
         </View>
-      )}
+      </View>
 
       <Modal animationType="slide" onRequestClose={() => setEditorVisible(false)} presentationStyle="pageSheet" visible={editorVisible}>
         <AppScreen>
@@ -278,6 +243,11 @@ export function GoalsView({ mode }: { mode: GoalsViewMode }) {
             </View>
             {datePickerVisible ? <DateTimePicker value={targetDate ?? new Date()} mode="date" display={Platform.OS === 'ios' ? 'compact' : 'default'} onValueChange={(_event, date) => { setTargetDate(date); if (Platform.OS === 'android') setDatePickerVisible(false); }} onDismiss={() => setDatePickerVisible(false)} themeVariant={theme.colorScheme} accentColor={theme.accent} /> : null}
             <ActionButton label={editingProject ? 'Guardar cambios' : 'Crear proyecto'} disabled={!name.trim()} onPress={saveProject} />
+            {editingProject ? (
+              <Pressable accessibilityRole="button" onPress={() => { setEditorVisible(false); removeProject(editingProject); }} style={styles.delete}>
+                <Typography style={{ color: theme.danger, fontWeight: '700' }}>Eliminar proyecto</Typography>
+              </Pressable>
+            ) : null}
           </Surface>
         </AppScreen>
       </Modal>
@@ -351,6 +321,11 @@ export function GoalsView({ mode }: { mode: GoalsViewMode }) {
               />
             ) : null}
             <ActionButton label={editingGoal ? 'Guardar cambios' : 'Crear objetivo'} disabled={!goalTitle.trim()} onPress={saveGoal} />
+            {editingGoal ? (
+              <Pressable accessibilityRole="button" onPress={() => { setGoalEditorVisible(false); removeGoal(editingGoal); }} style={styles.delete}>
+                <Typography style={{ color: theme.danger, fontWeight: '700' }}>Eliminar objetivo</Typography>
+              </Pressable>
+            ) : null}
           </Surface>
         </AppScreen>
       </Modal>
@@ -359,18 +334,9 @@ export function GoalsView({ mode }: { mode: GoalsViewMode }) {
 }
 
 const styles = StyleSheet.create({
+  sections: { gap: spacing.xl },
   list: { gap: spacing.sm },
-  categoryCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md },
-  categoryDot: { width: 14, height: 14, borderRadius: 7 },
-  cardCopy: { flex: 1, gap: spacing.xxs },
-  projectCard: { gap: spacing.md, padding: spacing.md },
-  goalCard: { gap: spacing.md, padding: spacing.md },
-  projectTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  iconButton: { minWidth: minTouchSize, minHeight: minTouchSize, alignItems: 'center', justifyContent: 'center' },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  progressTrack: { flex: 1, height: 5, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 3 },
-  projectActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
+  delete: { minHeight: minTouchSize, alignItems: 'center', justifyContent: 'center' },
   empty: { gap: spacing.sm },
   form: { gap: spacing.md },
   input: { minHeight: 48, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 16, fontFamily: fonts.medium },

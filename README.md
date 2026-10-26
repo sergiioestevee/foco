@@ -76,33 +76,33 @@ npx expo run:ios
 
 El comando genera los proyectos nativos cuando hace falta. Este repositorio usa Continuous Native Generation: no guardes cambios manuales dentro de ios/ o android/; configura esos cambios en Expo o mediante config plugins.
 
-## Asistente y backend de IA
+## Foco IA
 
-Sin una URL configurada, el asistente usa MockAIService: una demostración local que prepara tareas y un bloque horario para que decidas si aceptarlos. No llama a un proveedor de IA.
+Foco IA llama a un modelo abierto a través de Groq (plan gratuito) desde la Edge Function supabase/functions/foco-ai. La clave es un secreto del servidor (GROQ_API_KEY) y nunca llega a la app. Gemini sigue disponible como alternativa con AI_PROVIDER=gemini y GEMINI_API_KEY.
 
-Para conectar un proveedor real:
+- **Sesión**: quien usa Foco sin cuenta entra con una sesión anónima de Supabase, invisible para el usuario.
+- **Límite**: 30 mensajes al día por usuario (FOCO_AI_DAILY_LIMIT), en la tabla ai_usage, con RLS activado y sin acceso directo desde la app. Si falla el servidor o el proveedor, el mensaje se devuelve al cupo; solo la función puede hacerlo.
+- **Resumen por chat**: la IA mantiene un resumen de cada chat y lo recibe junto a los últimos mensajes, así puede retomar la conversación otro día. Se ve arriba del chat.
+- **Datos enviados**: src/services/ai-context.ts decide qué recibe la IA: asignaturas, exámenes, tareas pendientes, bloques, rutinas, clases y huecos libres. Nunca el nombre, el correo, las notas ni identificadores. Las respuestas se validan en el servidor.
+- **Sin Supabase configurado**: la app responde con una demostración local.
 
-1. Crea un backend o función serverless con un endpoint HTTPS POST, por ejemplo /api/foco.
-2. Guarda la clave del proveedor como secreto en el servidor. **Nunca incluyas claves privadas en la app ni en variables EXPO_PUBLIC_.**
-3. En Ajustes → Asistente de IA, guarda la URL del endpoint.
-4. Acepta Content-Type: application/json y un cuerpo con esta forma:
+### Puesta en marcha
 
-   ~~~json
-   {
-     "message": "Ayúdame a organizar la semana",
-     "context": {
-       "subjects": [],
-       "projects": [],
-       "tasks": [],
-       "goals": [],
-       "scheduleBlocks": []
-     }
-   }
+1. Crea el proyecto en Supabase (región de la UE) y activa **Allow anonymous sign-ins** y **Allow manual linking**.
+2. Copia .env.example como .env con la Project URL y la Publishable key.
+3. Crea una clave en console.groq.com y guárdala en **Edge Functions → Secrets** como GROQ_API_KEY.
+4. Aplica las migraciones y despliega la función:
+
+   ~~~bash
+   npx supabase login
+   npx supabase link --project-ref <id-del-proyecto>
+   npx supabase db push         # pide la contraseña de la base de datos
+   npx supabase functions deploy foco-ai
    ~~~
 
-5. Devuelve JSON con message y suggestions. Cada propuesta debe seguir uno de los tipos definidos en src/services/ai-service.ts: task, scheduleBlock o priority.
+### Pruebas
 
-El contrato está en src/services/ai-service.ts. BackendAIService contiene la llamada HTTP y AIService permite cambiar de proveedor. Valida en el servidor las salidas del modelo. Al configurar el endpoint, la app envía el contexto de asignaturas, proyectos, tareas, objetivos y horario; usa un servidor de confianza y explica a tus usuarios cómo tratará esos datos.
+npm run test:logic ejecuta las pruebas de la lógica sin dependencias de React Native (por ahora, la de foco-ai).
 
 ## Datos y sincronización
 

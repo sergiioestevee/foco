@@ -1,6 +1,20 @@
 import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInLeft,
+  FadeInRight,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+  ZoomIn,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
@@ -25,6 +39,9 @@ function subjectKey(name: string) {
   return name.trim().toLocaleLowerCase();
 }
 
+/** Staggered entrance for the pieces of a step. */
+const enter = (index: number) => FadeInDown.delay(80 + index * 70).duration(420);
+
 export default function OnboardingScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -36,6 +53,19 @@ export default function OnboardingScreen() {
 
   const totalSteps = isEditing ? 1 : 2;
   const [step, setStep] = useState(0);
+  /** Which way the last step change went, so the new step slides in from that side. */
+  const [direction, setDirection] = useState<1 | -1>(1);
+  const progress = useSharedValue((step + 1) / totalSteps);
+  const progressStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
+
+  useEffect(() => {
+    progress.value = withSpring((step + 1) / totalSteps, { damping: 18, stiffness: 160 });
+  }, [progress, step, totalSteps]);
+
+  const goToStep = (next: number) => {
+    setDirection(next > step ? 1 : -1);
+    setStep(next);
+  };
   const [name, setName] = useState(() => profile?.name ?? '');
   const [studies, setStudies] = useState(() => profile?.studies ?? '');
   const [focusTime, setFocusTime] = useState<FocusTime>(() => profile?.focusTime ?? 'afternoon');
@@ -89,7 +119,7 @@ export default function OnboardingScreen() {
   };
 
   const goBack = () => {
-    if (step > 0) setStep(step - 1);
+    if (step > 0) goToStep(step - 1);
     else if (router.canGoBack()) router.back();
     else router.replace('/account');
   };
@@ -123,7 +153,7 @@ export default function OnboardingScreen() {
               accessible
               accessibilityRole="progressbar"
               accessibilityLabel={`Paso ${step + 1} de ${totalSteps}`}>
-              <View style={[styles.progressFill, { backgroundColor: theme.accent, width: `${(step + 1) / totalSteps * 100}%` }]} />
+              <Animated.View style={[styles.progressFill, { backgroundColor: theme.accent }, progressStyle]} />
             </View>
             <Typography kind="secondary">{step + 1} de {totalSteps}</Typography>
           </>
@@ -134,142 +164,170 @@ export default function OnboardingScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.lg }]}>
-        {step === 0 ? (
-          <>
-            <View style={styles.intro}>
-              <Typography accessibilityRole="header" style={styles.title}>
-                {isEditing ? 'Tu perfil' : 'Cuéntanos qué estudias'}
-              </Typography>
-              <Typography kind="secondary" style={styles.subtitle}>
-                Con esto Foco prepara tus asignaturas y la IA ajusta sus propuestas.
-              </Typography>
-            </View>
+        {/* Keyed by step so each step remounts and slides in from the side it came from. */}
+        <Animated.View key={step} entering={(direction === 1 ? FadeInRight : FadeInLeft).duration(320)} style={styles.step}>
+          {step === 0 ? (
+            <>
+              <Animated.View entering={enter(0)} style={styles.intro}>
+                <Typography accessibilityRole="header" style={styles.title}>
+                  {isEditing ? 'Tu perfil' : 'Cuéntanos qué estudias'}
+                </Typography>
+                <Typography kind="secondary" style={styles.subtitle}>
+                  Con esto Foco prepara tus asignaturas y la IA ajusta sus propuestas.
+                </Typography>
+              </Animated.View>
 
-            <Field label="Cómo te llamas">
-              <TextInput
-                accessibilityLabel="Cómo te llamas"
-                autoCapitalize="words"
-                autoComplete="given-name"
-                maxLength={40}
-                onChangeText={setName}
-                placeholder="Tu nombre"
-                placeholderTextColor={theme.muted}
-                returnKeyType="next"
-                style={[styles.input, { backgroundColor: theme.surf, borderColor: theme.line, color: theme.text }]}
-                value={name}
-              />
-            </Field>
+              <Field index={1} label="Cómo te llamas">
+                <TextInput
+                  accessibilityLabel="Cómo te llamas"
+                  autoCapitalize="words"
+                  autoComplete="given-name"
+                  maxLength={40}
+                  onChangeText={setName}
+                  placeholder="Tu nombre"
+                  placeholderTextColor={theme.muted}
+                  returnKeyType="next"
+                  style={[styles.input, { backgroundColor: theme.surf, borderColor: theme.line, color: theme.text }]}
+                  value={name}
+                />
+              </Field>
 
-            <Field label="Qué estudias">
-              <TextInput
-                accessibilityLabel="Qué estudias"
-                maxLength={80}
-                onChangeText={setStudies}
-                placeholder="Ej.: 2.º de Ingeniería Informática"
-                placeholderTextColor={theme.muted}
-                returnKeyType="done"
-                style={[styles.input, { backgroundColor: theme.surf, borderColor: theme.line, color: theme.text }]}
-                value={studies}
-              />
-            </Field>
+              <Field index={2} label="Qué estudias">
+                <TextInput
+                  accessibilityLabel="Qué estudias"
+                  maxLength={80}
+                  onChangeText={setStudies}
+                  placeholder="Ej.: 2.º de Ingeniería Informática"
+                  placeholderTextColor={theme.muted}
+                  returnKeyType="done"
+                  style={[styles.input, { backgroundColor: theme.surf, borderColor: theme.line, color: theme.text }]}
+                  value={studies}
+                />
+              </Field>
 
-            <Field label="Tus asignaturas">
-              <View style={styles.chips}>
-                {visibleSubjects.map((subject) => {
-                  const selected = isSelected(subject);
-                  return (
-                    <Pressable
-                      key={subjectKey(subject.name)}
-                      accessibilityRole="checkbox"
-                      accessibilityLabel={subject.name}
-                      accessibilityState={{ checked: selected }}
-                      onPress={() => toggleSubject(subject)}
-                      style={[
-                        styles.chip,
-                        selected
-                          ? { backgroundColor: `${subject.color}2E`, borderColor: 'transparent' }
-                          : { borderColor: theme.line },
-                      ]}>
-                      <View style={[styles.chipDot, { backgroundColor: subject.color, opacity: selected ? 1 : 0.5 }]} />
-                      <Typography style={[styles.chipLabel, { color: selected ? theme.text : theme.muted }]}>{subject.name}</Typography>
-                    </Pressable>
-                  );
-                })}
-                {isAddingSubject ? (
-                  <TextInput
-                    accessibilityLabel="Nombre de la asignatura"
-                    autoCapitalize="sentences"
-                    autoFocus
-                    maxLength={40}
-                    // Submitting also blurs, so onBlur alone handles both without adding twice.
-                    onBlur={addSubject}
-                    onChangeText={setNewSubjectName}
-                    placeholder="Asignatura"
-                    placeholderTextColor={theme.muted}
-                    returnKeyType="done"
-                    style={[styles.chip, styles.chipInput, { borderColor: theme.accent, color: theme.text }]}
-                    value={newSubjectName}
-                  />
-                ) : (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Añadir asignatura"
-                    onPress={() => setIsAddingSubject(true)}
-                    style={[styles.chip, styles.addChip, { borderColor: theme.muted }]}>
-                    <SymbolIcon ios="plus" other="add" color={theme.text} size={14} />
-                    <Typography style={styles.chipLabel}>Añadir</Typography>
-                  </Pressable>
-                )}
+              <Field index={3} label="Tus asignaturas">
+                <View style={styles.chips}>
+                  {visibleSubjects.map((subject) => {
+                    const selected = isSelected(subject);
+                    return (
+                      // Selected subjects move to the front; the layout transition glides them there.
+                      <Animated.View key={subjectKey(subject.name)} layout={LinearTransition.springify().damping(18)} entering={FadeIn.duration(250)}>
+                        <Pressable
+                          accessibilityRole="checkbox"
+                          accessibilityLabel={subject.name}
+                          accessibilityState={{ checked: selected }}
+                          onPress={() => toggleSubject(subject)}
+                          style={[
+                            styles.chip,
+                            selected
+                              ? { backgroundColor: `${subject.color}2E`, borderColor: 'transparent' }
+                              : { borderColor: theme.line },
+                          ]}>
+                          <View style={[styles.chipDot, { backgroundColor: subject.color, opacity: selected ? 1 : 0.5 }]} />
+                          <Typography style={[styles.chipLabel, { color: selected ? theme.text : theme.muted }]}>{subject.name}</Typography>
+                        </Pressable>
+                      </Animated.View>
+                    );
+                  })}
+                  <Animated.View layout={LinearTransition.springify().damping(18)}>
+                    {isAddingSubject ? (
+                      <TextInput
+                        accessibilityLabel="Nombre de la asignatura"
+                        autoCapitalize="sentences"
+                        autoFocus
+                        maxLength={40}
+                        // Submitting also blurs, so onBlur alone handles both without adding twice.
+                        onBlur={addSubject}
+                        onChangeText={setNewSubjectName}
+                        placeholder="Asignatura"
+                        placeholderTextColor={theme.muted}
+                        returnKeyType="done"
+                        style={[styles.chip, styles.chipInput, { borderColor: theme.accent, color: theme.text }]}
+                        value={newSubjectName}
+                      />
+                    ) : (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Añadir asignatura"
+                        onPress={() => setIsAddingSubject(true)}
+                        style={[styles.chip, styles.addChip, { borderColor: theme.muted }]}>
+                        <SymbolIcon ios="plus" other="add" color={theme.text} size={14} />
+                        <Typography style={styles.chipLabel}>Añadir</Typography>
+                      </Pressable>
+                    )}
+                  </Animated.View>
+                </View>
+              </Field>
+
+              <Field index={4} label="Cuándo te concentras mejor">
+                <SegmentedControl options={focusTimeOptions} value={focusTime} onChange={setFocusTime} />
+              </Field>
+
+              <Animated.View entering={enter(5)} style={styles.actions}>
+                <ActionButton
+                  label={isEditing ? 'Guardar' : 'Continuar'}
+                  disabled={!canContinue}
+                  accessibilityState={{ disabled: !canContinue }}
+                  onPress={() => (isEditing ? save() : goToStep(1))}
+                  style={!canContinue && styles.disabled}
+                />
+              </Animated.View>
+            </>
+          ) : (
+            <>
+              <View style={styles.intro}>
+                <RingingBell />
+                <Animated.View entering={enter(1)} style={styles.intro}>
+                  <Typography accessibilityRole="header" style={styles.title}>¿Te avisamos a tiempo?</Typography>
+                  <Typography kind="secondary" style={styles.subtitle}>
+                    Foco te recuerda tus entregas y exámenes antes de que lleguen. Puedes cambiarlo cuando quieras en Perfil.
+                  </Typography>
+                </Animated.View>
               </View>
-            </Field>
 
-            <Field label="Cuándo te concentras mejor">
-              <SegmentedControl options={focusTimeOptions} value={focusTime} onChange={setFocusTime} />
-            </Field>
-
-            <View style={styles.actions}>
-              <ActionButton
-                label={isEditing ? 'Guardar' : 'Continuar'}
-                disabled={!canContinue}
-                accessibilityState={{ disabled: !canContinue }}
-                onPress={() => (isEditing ? save() : setStep(1))}
-                style={!canContinue && styles.disabled}
-              />
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={styles.intro}>
-              <View style={[styles.bell, { backgroundColor: theme.aiBg }]}>
-                <SymbolIcon ios="bell.badge" other="notifications_active" color={theme.accent} size={30} />
-              </View>
-              <Typography accessibilityRole="header" style={styles.title}>¿Te avisamos a tiempo?</Typography>
-              <Typography kind="secondary" style={styles.subtitle}>
-                Foco te recuerda tus entregas y exámenes antes de que lleguen. Puedes cambiarlo cuando quieras en Perfil.
-              </Typography>
-            </View>
-
-            <View style={styles.actions}>
-              <ActionButton
-                label={isRequestingReminders ? 'Activando…' : 'Activar recordatorios'}
-                disabled={isRequestingReminders}
-                onPress={() => void enableReminders()}
-              />
-              <ActionButton label="Ahora no" variant="plain" disabled={isRequestingReminders} onPress={save} />
-            </View>
-          </>
-        )}
+              <Animated.View entering={enter(2)} style={styles.actions}>
+                <ActionButton
+                  label={isRequestingReminders ? 'Activando…' : 'Activar recordatorios'}
+                  disabled={isRequestingReminders}
+                  onPress={() => void enableReminders()}
+                />
+                <ActionButton label="Ahora no" variant="plain" disabled={isRequestingReminders} onPress={save} />
+              </Animated.View>
+            </>
+          )}
+        </Animated.View>
       </ScrollView>
     </View>
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ index, label, children }: { index: number; label: string; children: ReactNode }) {
   return (
-    <View style={styles.field}>
+    <Animated.View entering={enter(index)} style={styles.field}>
       <Typography kind="secondary" style={styles.fieldLabel}>{label}</Typography>
       {children}
-    </View>
+    </Animated.View>
+  );
+}
+
+/** Pops in, then rings a couple of times. */
+function RingingBell() {
+  const theme = useTheme();
+  const rotation = useSharedValue(0);
+
+  useEffect(() => {
+    const swing = (degrees: number) => withTiming(degrees, { duration: 90 });
+    rotation.value = withDelay(450, withSequence(swing(14), swing(-12), swing(9), swing(-6), swing(3), swing(0)));
+  }, [rotation]);
+
+  const ringStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${rotation.value}deg` }] }));
+
+  return (
+    <Animated.View entering={ZoomIn.springify().damping(12)} style={[styles.bell, { backgroundColor: theme.aiBg }]}>
+      <Animated.View style={ringStyle}>
+        <SymbolIcon ios="bell.badge" other="notifications_active" color={theme.accent} size={30} />
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -279,7 +337,8 @@ const styles = StyleSheet.create({
   back: { width: minTouchSize + 4, height: minTouchSize + 4, borderRadius: radii.button, alignItems: 'center', justifyContent: 'center' },
   progressTrack: { flex: 1, height: 6, borderRadius: radii.pill, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: radii.pill },
-  content: { flexGrow: 1, paddingHorizontal: spacing.lg, gap: spacing.lg },
+  content: { flexGrow: 1, paddingHorizontal: spacing.lg },
+  step: { flexGrow: 1, gap: spacing.lg },
   intro: { gap: spacing.xs },
   title: { fontSize: 32, lineHeight: 38, fontWeight: '800', letterSpacing: -0.8 },
   subtitle: { fontSize: 16, lineHeight: 23 },

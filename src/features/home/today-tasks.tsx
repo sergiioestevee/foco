@@ -4,21 +4,27 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
-import { formatDuration } from '@/features/calendar/calendar-utils';
+import { formatDuration, toDayKey } from '@/features/calendar/calendar-utils';
+import { formatWeekdays, isRoutineDoneOn } from '@/features/routines/routine-utils';
 import { taskKindLabel } from '@/features/tasks/task-kinds';
 import { useFocoStore } from '@/store/use-foco-store';
 import { useTheme } from '@/theme/use-theme';
 import { minTouchSize, radii, spacing } from '@/theme/tokens';
-import type { StudyBlock, Task } from '@/types/models';
+import type { Routine, StudyBlock, Task } from '@/types/models';
 
 const MAX_VISIBLE = 6;
 
-/** "Hoy" on Inicio: today's tasks first, then study blocks by time. */
-export function TodayTasks({ tasks, studyBlocks }: { tasks: Task[]; studyBlocks: StudyBlock[] }) {
+/** "Hoy" on Inicio: tasks first, then study blocks and timed routines by time, then routines with no time. */
+export function TodayTasks({ tasks, studyBlocks, routines }: { tasks: Task[]; studyBlocks: StudyBlock[]; routines: Routine[] }) {
   const theme = useTheme();
+  const today = new Date();
+  const timed = [
+    ...studyBlocks.map((block) => ({ time: block.startTime, node: <TodayBlockRow key={`block-${block.id}`} block={block} /> })),
+    ...routines.map((routine) => ({ time: routine.time ?? '99:99', node: <TodayRoutineRow key={`routine-${routine.id}`} routine={routine} day={today} /> })),
+  ].sort((left, right) => left.time.localeCompare(right.time));
   const rows = [
     ...tasks.map((task) => <TodayTaskRow key={`task-${task.id}`} task={task} />),
-    ...studyBlocks.map((block) => <TodayBlockRow key={`block-${block.id}`} block={block} />),
+    ...timed.map((item) => item.node),
   ];
 
   return (
@@ -74,6 +80,23 @@ function TodayBlockRow({ block }: { block: StudyBlock }) {
       color={subject?.color}
       completed={block.completed}
       onToggle={() => toggleStudyBlockCompleted(block.id)}
+    />
+  );
+}
+
+/** A routine for a given day; also used by Calendario for other days. */
+export function TodayRoutineRow({ routine, day }: { routine: Routine; day: Date }) {
+  const toggleRoutineDone = useFocoStore((state) => state.toggleRoutineDone);
+  const subject = useFocoStore((state) => state.subjects.find((item) => item.id === routine.subjectId));
+  const details = ['Rutina', subject?.name, routine.time ?? formatWeekdays(routine.weekdays)].filter(Boolean).join(' · ');
+
+  return (
+    <TodayRow
+      title={routine.title}
+      details={details}
+      color={subject?.color}
+      completed={isRoutineDoneOn(routine, day)}
+      onToggle={() => toggleRoutineDone(routine.id, toDayKey(day))}
     />
   );
 }

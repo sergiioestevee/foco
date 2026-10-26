@@ -1,5 +1,6 @@
 import { addWeeks, format, isSameDay, startOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -15,7 +16,8 @@ import { ClassBlockEditor } from '@/features/calendar/class-block-editor';
 import { StudyBlockFormSheet } from '@/features/calendar/study-block-form-sheet';
 import { WeekStrip } from '@/features/calendar/week-strip';
 import { ExamFormSheet } from '@/features/exams/exam-form-sheet';
-import { TodayTaskRow } from '@/features/home/today-tasks';
+import { TodayRoutineRow, TodayTaskRow } from '@/features/home/today-tasks';
+import { getRoutinesForDay } from '@/features/routines/routine-utils';
 import { useFocoStore } from '@/store/use-foco-store';
 import { useTheme } from '@/theme/use-theme';
 import { spacing } from '@/theme/tokens';
@@ -33,20 +35,23 @@ export default function CalendarScreen() {
   const studyBlocks = useFocoStore((state) => state.studyBlocks);
   const exams = useFocoStore((state) => state.exams);
   const tasks = useFocoStore((state) => state.tasks);
+  const routines = useFocoStore((state) => state.routines);
   const today = new Date();
   const [selectedKey, setSelectedKey] = useState(() => toDayKey(today));
   const [editor, setEditor] = useState<Editor | undefined>(undefined);
 
   const selectedDay = fromDayKey(selectedKey);
   const weekStart = startOfWeek(selectedDay, { weekStartsOn: 1 });
-  const source = { scheduleBlocks, studyBlocks, exams, tasks };
+  const source = { scheduleBlocks, studyBlocks, exams, tasks, routines };
   const agenda = getAgenda(selectedDay, source);
   const dayTasks = getTasksForDay(tasks, selectedDay);
+  const untimedRoutines = getRoutinesForDay(routines, selectedDay).filter((routine) => !routine.time);
   const dayLabel = format(selectedDay, "EEEE d 'de' MMMM", { locale: es });
 
   const openItem = (item: AgendaItem) => {
     if (item.type === 'study') setEditor({ type: 'study', block: item.block });
     else if (item.type === 'class') setEditor({ type: 'class', block: item.block });
+    else if (item.type === 'routine') router.push('/routines');
     else setEditor({ type: 'exam', exam: item.exam });
   };
 
@@ -87,10 +92,11 @@ export default function CalendarScreen() {
             </Surface>
           )}
 
-          {dayTasks.length ? (
+          {dayTasks.length || untimedRoutines.length ? (
             <View style={styles.list}>
               <Typography kind="heading">Para este día</Typography>
               {dayTasks.map((task) => <TodayTaskRow key={task.id} task={task} />)}
+              {untimedRoutines.map((routine) => <TodayRoutineRow key={routine.id} routine={routine} day={selectedDay} />)}
             </View>
           ) : null}
 

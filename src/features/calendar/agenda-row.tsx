@@ -7,7 +7,9 @@ import { useFocoStore } from '@/store/use-foco-store';
 import { useTheme } from '@/theme/use-theme';
 import { minTouchSize, radii, spacing } from '@/theme/tokens';
 
-import { formatDuration, type AgendaItem } from './calendar-utils';
+import { formatWeekdays, isRoutineDoneOn } from '@/features/routines/routine-utils';
+
+import { formatDuration, toDayKey, type AgendaItem } from './calendar-utils';
 
 type AgendaRowProps = {
   item: AgendaItem;
@@ -19,6 +21,7 @@ export function AgendaRow({ item, onPress }: AgendaRowProps) {
   const subjects = useFocoStore((state) => state.subjects);
   const projects = useFocoStore((state) => state.projects);
   const toggleStudyBlockCompleted = useFocoStore((state) => state.toggleStudyBlockCompleted);
+  const toggleRoutineDone = useFocoStore((state) => state.toggleRoutineDone);
 
   let title: string;
   let details: string;
@@ -38,6 +41,12 @@ export function AgendaRow({ item, onPress }: AgendaRowProps) {
     details = [subject?.name, formatDuration(item.startTime, item.endTime)].filter(Boolean).join(' · ');
     color = subject?.color ?? theme.accent;
     label = 'Estudio';
+  } else if (item.type === 'routine') {
+    const subject = subjects.find((entry) => entry.id === item.routine.subjectId);
+    title = item.routine.title;
+    details = [subject?.name, formatWeekdays(item.routine.weekdays)].filter(Boolean).join(' · ');
+    color = subject?.color ?? theme.ok;
+    label = 'Rutina';
   } else {
     const subject = subjects.find((entry) => entry.id === item.exam.subjectId);
     title = [subject?.name, item.exam.title].filter(Boolean).join(' · ');
@@ -45,7 +54,14 @@ export function AgendaRow({ item, onPress }: AgendaRowProps) {
     color = theme.warn;
     label = 'Examen';
   }
-  const completed = item.type === 'study' && item.block.completed;
+  const completed = item.type === 'study'
+    ? item.block.completed
+    : item.type === 'routine' && isRoutineDoneOn(item.routine, item.day);
+  const toggle = item.type === 'study'
+    ? () => toggleStudyBlockCompleted(item.block.id)
+    : item.type === 'routine'
+      ? () => toggleRoutineDone(item.routine.id, toDayKey(item.day))
+      : null;
 
   return (
     <View style={styles.row}>
@@ -65,14 +81,14 @@ export function AgendaRow({ item, onPress }: AgendaRowProps) {
           <Typography numberOfLines={2} style={[styles.title, completed && { color: theme.muted, textDecorationLine: 'line-through' }]}>{title}</Typography>
           {details ? <Typography kind="caption" numberOfLines={1}>{details}</Typography> : null}
         </View>
-        {item.type === 'study' ? (
+        {toggle ? (
           <Pressable
             accessibilityRole="checkbox"
-            accessibilityLabel={`Marcar ${item.block.title} como hecho`}
+            accessibilityLabel={`Marcar ${title} como hecho`}
             accessibilityState={{ checked: completed }}
             hitSlop={6}
             onPress={() => {
-              toggleStudyBlockCompleted(item.block.id);
+              toggle();
               void Haptics.selectionAsync();
             }}
             style={styles.checkArea}>

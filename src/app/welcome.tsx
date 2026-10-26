@@ -1,6 +1,16 @@
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, {
+  Extrapolation,
+  FadeInDown,
+  interpolate,
+  interpolateColor,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
@@ -13,11 +23,18 @@ import { minTouchSize, radii, spacing } from '@/theme/tokens';
 
 type Slide = { key: string; title: string; body: string; visual: ReactNode };
 
+/** Staggered entrance for the first slide's pieces. */
+const enter = (index: number) => FadeInDown.delay(120 + index * 90).duration(450);
+
 export default function WelcomeScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [page, setPage] = useState(0);
+  const scrollX = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((event) => {
+    scrollX.value = event.contentOffset.x;
+  });
 
   const slides: Slide[] = [
     {
@@ -30,7 +47,7 @@ export default function WelcomeScreen() {
       key: 'progress',
       title: 'Mira cómo avanzas\ncada día.',
       body: 'El anillo se completa con cada tarea que terminas. La racha y los objetivos te ayudan a mantener el ritmo.',
-      visual: <ProgressPreview />,
+      visual: <ProgressPreview active={page === 1} />,
     },
     {
       key: 'ai',
@@ -50,37 +67,71 @@ export default function WelcomeScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={(event) => setPage(Math.round(event.nativeEvent.contentOffset.x / width))}
         style={styles.carousel}>
-        {slides.map((slide) => (
-          <View key={slide.key} style={[styles.slide, { width }]}>
-            <View style={styles.visual} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-              {slide.visual}
-            </View>
-            <Typography accessibilityRole="header" style={styles.title}>{slide.title}</Typography>
-            <Typography kind="secondary" style={styles.body}>{slide.body}</Typography>
-          </View>
+        {slides.map((slide, index) => (
+          <SlideView key={slide.key} slide={slide} index={index} width={width} scrollX={scrollX} />
         ))}
-      </ScrollView>
+      </Animated.ScrollView>
 
-      <View style={styles.footer}>
+      <Animated.View entering={enter(3)} style={styles.footer}>
         <View style={styles.dots} accessible accessibilityLabel={`Página ${page + 1} de ${slides.length}`}>
           {slides.map((slide, index) => (
-            <View
-              key={slide.key}
-              style={[styles.dot, index === page ? { width: 22, backgroundColor: theme.accent } : { backgroundColor: theme.line }]}
-            />
+            <PageDot key={slide.key} index={index} width={width} scrollX={scrollX} />
           ))}
         </View>
         <ActionButton label="Empezar" onPress={goToAccount} />
         <ActionButton label="Ya tengo cuenta" variant="plain" onPress={goToAccount} />
-      </View>
+      </Animated.View>
     </View>
   );
+}
+
+/** The visual drifts slower than the page and the text fades, so slides feel layered as you swipe. */
+function SlideView({ slide, index, width, scrollX }: { slide: Slide; index: number; width: number; scrollX: SharedValue<number> }) {
+  const range = [(index - 1) * width, index * width, (index + 1) * width];
+  const visualStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollX.value, range, [0, 1, 0], Extrapolation.CLAMP),
+    transform: [
+      { translateX: interpolate(scrollX.value, range, [width * 0.35, 0, -width * 0.35], Extrapolation.CLAMP) },
+      { scale: interpolate(scrollX.value, range, [0.9, 1, 0.9], Extrapolation.CLAMP) },
+    ],
+  }));
+  const textStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollX.value, range, [0, 1, 0], Extrapolation.CLAMP),
+    transform: [{ translateX: interpolate(scrollX.value, range, [width * 0.15, 0, -width * 0.15], Extrapolation.CLAMP) }],
+  }));
+
+  return (
+    <View style={[styles.slide, { width }]}>
+      <Animated.View style={[styles.visual, visualStyle]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {slide.visual}
+      </Animated.View>
+      {/* Entrance and swipe animations on separate views: a layout animation would override the swipe's opacity and transform. */}
+      <Animated.View entering={index === 0 ? enter(1) : undefined}>
+        <Animated.View style={[styles.copy, textStyle]}>
+          <Typography accessibilityRole="header" style={styles.title}>{slide.title}</Typography>
+          <Typography kind="secondary" style={styles.body}>{slide.body}</Typography>
+        </Animated.View>
+      </Animated.View>
+    </View>
+  );
+}
+
+function PageDot({ index, width, scrollX }: { index: number; width: number; scrollX: SharedValue<number> }) {
+  const theme = useTheme();
+  const range = [(index - 1) * width, index * width, (index + 1) * width];
+  const dotStyle = useAnimatedStyle(() => ({
+    width: interpolate(scrollX.value, range, [7, 22, 7], Extrapolation.CLAMP),
+    backgroundColor: interpolateColor(scrollX.value, range, [theme.line, theme.accent, theme.line]),
+  }));
+  return <Animated.View style={[styles.dot, dotStyle]} />;
 }
 
 function CourseCards() {
@@ -89,6 +140,7 @@ function CourseCards() {
   return (
     <View style={styles.cards}>
       <PreviewCard
+        index={0}
         icon={<SymbolIcon ios="calendar" other="calendar_month" color={theme.warn} size={22} />}
         tint={theme.warn}
         title="Examen de Cálculo"
@@ -101,8 +153,10 @@ function CourseCards() {
         title="Práctica 2 entregada"
         subtitle="Hoy · 5 de 8 tareas hechas"
         style={styles.indentedCard}
+        index={1}
       />
       <PreviewCard
+        index={2}
         icon={<SymbolIcon ios="sparkles" other="auto_awesome" color={theme.accent} size={22} />}
         tint={theme.accent}
         title="Foco IA"
@@ -112,7 +166,8 @@ function CourseCards() {
   );
 }
 
-function PreviewCard({ icon, tint, title, subtitle, trailing, style }: {
+function PreviewCard({ index, icon, tint, title, subtitle, trailing, style }: {
+  index: number;
   icon: ReactNode;
   tint: string;
   title: string;
@@ -121,21 +176,24 @@ function PreviewCard({ icon, tint, title, subtitle, trailing, style }: {
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <Surface inset={false} style={[styles.previewCard, style]}>
-      <View style={[styles.previewIcon, { backgroundColor: `${tint}22` }]}>{icon}</View>
-      <View style={styles.previewCopy}>
-        <Typography numberOfLines={1} style={styles.previewTitle}>{title}</Typography>
-        <Typography kind="secondary" numberOfLines={1} style={styles.previewSubtitle}>{subtitle}</Typography>
-      </View>
-      {trailing}
-    </Surface>
+    <Animated.View entering={FadeInDown.delay(index * 110).duration(500).springify()} style={style}>
+      <Surface inset={false} style={styles.previewCard}>
+        <View style={[styles.previewIcon, { backgroundColor: `${tint}22` }]}>{icon}</View>
+        <View style={styles.previewCopy}>
+          <Typography numberOfLines={1} style={styles.previewTitle}>{title}</Typography>
+          <Typography kind="secondary" numberOfLines={1} style={styles.previewSubtitle}>{subtitle}</Typography>
+        </View>
+        {trailing}
+      </Surface>
+    </Animated.View>
   );
 }
 
-function ProgressPreview() {
+/** The ring fills when its slide comes into view. */
+function ProgressPreview({ active }: { active: boolean }) {
   return (
     <Surface style={styles.progressCard}>
-      <ProgressRing progress={0.62} size={104} />
+      <ProgressRing progress={active ? 0.62 : 0} size={104} />
       <View style={styles.previewCopy}>
         <Typography style={styles.progressPercent}>62%</Typography>
         <Typography style={styles.previewTitle}>del día completado</Typography>
@@ -175,6 +233,7 @@ const styles = StyleSheet.create({
   skip: { minHeight: minTouchSize, justifyContent: 'center' },
   carousel: { flex: 1 },
   slide: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md },
+  copy: { gap: spacing.md },
   visual: { flex: 1, justifyContent: 'center' },
   title: { fontSize: 34, lineHeight: 40, fontWeight: '800', letterSpacing: -1 },
   body: { fontSize: 17, lineHeight: 25 },

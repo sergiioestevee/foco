@@ -1,6 +1,6 @@
 import { addDays, format, setHours, startOfDay } from 'date-fns';
 
-import type { Exam, Goal, PersonalProject, ScheduleBlock, StudyBlock, Subject, Task } from '@/types/models';
+import type { Exam, Goal, PersonalProject, Routine, ScheduleBlock, StudyBlock, Subject, Task } from '@/types/models';
 import { defaultSubjects } from '@/features/subjects/default-subjects';
 
 export type DemoData = {
@@ -11,6 +11,7 @@ export type DemoData = {
   goals: Goal[];
   scheduleBlocks: ScheduleBlock[];
   studyBlocks: StudyBlock[];
+  routines: Routine[];
 };
 
 export function createDemoData(now = new Date()): DemoData {
@@ -117,5 +118,17 @@ export function createDemoData(now = new Date()): DemoData {
     },
   ];
 
-  return { subjects, projects, tasks, exams, goals, scheduleBlocks, studyBlocks };
+  const routines: Routine[] = [
+    {
+      id: 'demo-routine-plan', title: 'Plan de mañana', weekdays: [0, 1, 2, 3, 4],
+      time: '22:00', subjectId: null, completedDates: [], createdAt: now.toISOString(),
+    },
+    {
+      id: 'demo-routine-notes', title: 'Pasar apuntes a limpio', weekdays: [1, 3, 5],
+      time: null, subjectId: subjects[0].id,
+      completedDates: [format(addDays(today, -2), 'yyyy-MM-dd')], createdAt: now.toISOString(),
+    },
+  ];
+
+  return { subjects, projects, tasks, exams, goals, scheduleBlocks, studyBlocks, routines };
 }

@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { startSyncTracking } from '@/data/sync-engine';
@@ -58,23 +59,28 @@ export default function RootLayout() {
   if (!fontsReady) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: bg }}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: bg },
-            }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="subjects" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="account" />
-            <Stack.Screen name="onboarding" />
-          </Stack>
-          {showBoot ? <BootScreen /> : null}
-        </View>
-      </SafeAreaProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <SafeAreaProvider>
+          <View style={{ flex: 1, backgroundColor: bg }}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: bg },
+              }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="subjects" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="chat/[id]" />
+              <Stack.Screen name="routines" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: 24 }} />
+              <Stack.Screen name="goals" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: 24 }} />
+              <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
+              <Stack.Screen name="account" />
+              <Stack.Screen name="onboarding" />
+            </Stack>
+            {showBoot ? <BootScreen /> : null}
+          </View>
+        </SafeAreaProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

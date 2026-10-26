@@ -24,8 +24,12 @@ type TaskFormSheetProps = {
   visible: boolean;
   task?: Task | null;
   defaultGoalId?: string | null;
+  /** Category for a new task, e.g. the project the Tareas list is filtered by. */
+  defaultCategory?: CategorySelection;
   onClose: () => void;
   onSave: (draft: TaskDraft) => void;
+  /** Shown as «Eliminar tarea» when editing; rows have no delete button. */
+  onDelete?: () => void;
 };
 
 const priorities: { value: TaskPriority; label: string }[] = [
@@ -34,7 +38,7 @@ const priorities: { value: TaskPriority; label: string }[] = [
   { value: 'high', label: 'Alta' },
 ];
 
-export function TaskFormSheet({ visible, task, defaultGoalId, onClose, onSave }: TaskFormSheetProps) {
+export function TaskFormSheet({ visible, task, defaultGoalId, defaultCategory, onClose, onSave, onDelete }: TaskFormSheetProps) {
   const theme = useTheme();
   const goals = useFocoStore((state) => state.goals);
   const [kind, setKind] = useState<TaskKind>(task?.kind ?? 'task');
@@ -44,7 +48,7 @@ export function TaskFormSheet({ visible, task, defaultGoalId, onClose, onSave }:
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 'medium');
   const [category, setCategory] = useState<CategorySelection>(task?.categoryId && task.categoryType
     ? { categoryId: task.categoryId, categoryType: task.categoryType }
-    : { categoryId: null, categoryType: null });
+    : defaultCategory ?? { categoryId: null, categoryType: null });
   const [goalId, setGoalId] = useState<string | null>(task?.goalId ?? defaultGoalId ?? null);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
 
@@ -78,7 +82,7 @@ export function TaskFormSheet({ visible, task, defaultGoalId, onClose, onSave }:
                 <SymbolIcon ios="xmark" other="close" color={theme.muted} size={20} />
               </Pressable>
             </View>
-            <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <TextInput
                 accessibilityLabel="Título de la tarea"
                 autoFocus={!task}
@@ -160,6 +164,11 @@ export function TaskFormSheet({ visible, task, defaultGoalId, onClose, onSave }:
                 />
               </View>
               <ActionButton label={task ? 'Guardar cambios' : 'Añadir tarea'} disabled={!title.trim()} onPress={save} />
+              {task && onDelete ? (
+                <Pressable accessibilityRole="button" onPress={onDelete} style={styles.delete}>
+                  <Typography style={{ color: theme.danger, fontWeight: '700' }}>Eliminar tarea</Typography>
+                </Pressable>
+              ) : null}
             </ScrollView>
           </SafeAreaView>
         </KeyboardAvoidingView>
@@ -171,12 +180,15 @@ export function TaskFormSheet({ visible, task, defaultGoalId, onClose, onSave }:
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
   keyboard: { maxHeight: '94%' },
-  sheet: { borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
+  // flexShrink lets the sheet and its list fit inside the 94% cap, so a long form scrolls to its last button.
+  sheet: { flexShrink: 1, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
+  scroll: { flexShrink: 1 },
   handle: { width: 36, height: 5, borderRadius: 3, alignSelf: 'center', opacity: 0.45, marginBottom: spacing.md },
   sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.md },
   headerCopy: { flex: 1, gap: spacing.xxs },
   closeButton: { width: minTouchSize, height: minTouchSize, borderRadius: minTouchSize / 2, alignItems: 'center', justifyContent: 'center' },
-  form: { gap: spacing.md, paddingBottom: spacing.md },
+  form: { gap: spacing.md, paddingBottom: spacing.xl },
+  delete: { minHeight: minTouchSize, alignItems: 'center', justifyContent: 'center' },
   titleInput: { minHeight: 56, borderRadius: 16, paddingHorizontal: spacing.md, fontSize: 19, fontFamily: fonts.semibold },
   field: { gap: spacing.xs },
   goalPicker: { minHeight: 48, justifyContent: 'center', borderRadius: 14, paddingHorizontal: spacing.xs },

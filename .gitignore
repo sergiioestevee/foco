@@ -36,3 +36,6 @@ yarn-error.*
 
 # TypeScript
 *.tsbuildinfo
+
+# brainstorming mockups (local only)
+.superpowers/

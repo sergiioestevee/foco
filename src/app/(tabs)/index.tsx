@@ -20,6 +20,7 @@ import {
   getWeekProgress,
   toPercent,
 } from '@/features/progress/progress-stats';
+import { isRoutineDoneOn } from '@/features/routines/routine-utils';
 import { getDailyProposal } from '@/services/ai-service';
 import { useFocoStore } from '@/store/use-foco-store';
 import { useTheme } from '@/theme/use-theme';
@@ -34,23 +35,24 @@ export default function HomeScreen() {
   const exams = useFocoStore((state) => state.exams);
   const scheduleBlocks = useFocoStore((state) => state.scheduleBlocks);
   const studyBlocks = useFocoStore((state) => state.studyBlocks);
+  const routines = useFocoStore((state) => state.routines);
   const includeOverdue = useFocoStore((state) => state.settings.includeOverdueInDailyProgress);
 
   const now = new Date();
   const dateLabel = format(now, "EEEE, d 'de' MMMM", { locale: es });
-  const day = getDayProgress({ tasks, studyBlocks }, includeOverdue, now);
-  const week = getWeekProgress({ tasks, studyBlocks }, now);
+  const day = getDayProgress({ tasks, studyBlocks, routines }, includeOverdue, now);
+  const week = getWeekProgress({ tasks, studyBlocks, routines }, now);
   const goalsProgress = getGoalsProgress(goals);
-  const streak = getStreak({ tasks, studyBlocks }, now);
+  const streak = getStreak({ tasks, studyBlocks, routines }, now);
   const nextExam = getUpcomingExams(exams, now)[0];
-  const proposal = getDailyProposal({ tasks, subjects, scheduleBlocks, exams, studyBlocks }, now);
+  const proposal = getDailyProposal({ tasks, subjects, scheduleBlocks, exams, studyBlocks, routines }, now);
 
   return (
     <AppScreen>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Typography kind="secondary" style={styles.date}>{dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}</Typography>
-          <Typography kind="title" style={styles.greeting}>
+          <Typography kind="title" style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
             {getGreeting(now)}{profile?.name ? `, ${profile.name}` : ''}
           </Typography>
         </View>
@@ -68,7 +70,8 @@ export default function HomeScreen() {
         <DayProgressCard
           completed={day.completed}
           total={day.total}
-          nextTitle={[...day.tasks, ...day.studyBlocks].find((item) => !item.completed)?.title}
+          nextTitle={[...day.tasks, ...day.studyBlocks].find((item) => !item.completed)?.title
+            ?? day.routines.find((routine) => !isRoutineDoneOn(routine, now))?.title}
         />
 
         <StatTiles
@@ -92,10 +95,10 @@ export default function HomeScreen() {
         />
 
         {nextExam ? (
-          <ExamCard exam={nextExam} isNext onPress={() => router.push({ pathname: '/tasks', params: { view: 'exams' } })} />
+          <ExamCard exam={nextExam} isNext onPress={() => router.push({ pathname: '/tasks', params: { examId: nextExam.id } })} />
         ) : null}
 
-        <TodayTasks tasks={day.tasks} studyBlocks={day.studyBlocks} />
+        <TodayTasks tasks={day.tasks} studyBlocks={day.studyBlocks} routines={day.routines} />
 
         {proposal ? <AiProposalCard proposal={proposal} /> : null}
       </View>
@@ -104,10 +107,10 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, marginBottom: spacing.lg },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, marginBottom: spacing.lg },
   headerCopy: { flex: 1, gap: spacing.xxs },
   date: { fontSize: 14 },
-  greeting: { fontSize: 28, lineHeight: 34 },
+  greeting: { fontSize: 24, lineHeight: 30, letterSpacing: -0.5 },
   bell: {
     width: minTouchSize + 4,
     height: minTouchSize + 4,

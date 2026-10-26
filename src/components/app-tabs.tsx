@@ -7,7 +7,8 @@ import { useTheme } from '@/theme/use-theme';
 const tabItems = [
   <NativeTabs.Trigger key="index" name="index">
     <NativeTabs.Trigger.Label>Inicio</NativeTabs.Trigger.Label>
-    <NativeTabs.Trigger.Icon sf={{ default: 'smallcircle.filled.circle', selected: 'smallcircle.filled.circle.fill' }} md={{ default: 'radio_button_checked', selected: 'radio_button_checked' }} />
+    {/* The logo's open ring; `template` lets the tab bar tint it like the symbols. */}
+    <NativeTabs.Trigger.Icon src={require('../../assets/tab-home.png')} renderingMode="template" />
   </NativeTabs.Trigger>,
   <NativeTabs.Trigger key="calendar" name="calendar">
     <NativeTabs.Trigger.Label>Calendario</NativeTabs.Trigger.Label>

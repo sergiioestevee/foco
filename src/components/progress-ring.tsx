@@ -1,16 +1,24 @@
 import { useEffect, useId } from 'react';
 import { View } from 'react-native';
 import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
-import Svg, { Circle, Defs, G, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { useTheme } from '@/theme/use-theme';
 import { dotGradient } from '@/theme/tokens';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-// Same proportions as the logo: stroke 58 and dot 84 on a radius of 250.
-const STROKE_RATIO = 0.23;
+// Thinner than the logo's stroke (58 on a radius of 250); same dot (84 on 250).
+const STROKE_RATIO = 0.14;
 const DOT_RATIO = 0.34;
+// Open like the logo: the arc runs clockwise from 20° above 3 o'clock round to 10° past 12, leaving a gap at the top right.
+const ARC_START = -20;
+const ARC_SWEEP = 300;
+
+function pointAt(center: number, radius: number, degrees: number) {
+  const angle = (degrees * Math.PI) / 180;
+  return `${center + radius * Math.cos(angle)} ${center + radius * Math.sin(angle)}`;
+}
 
 type ProgressRingProps = {
   /** From 0 to 1. */
@@ -28,7 +36,8 @@ export function ProgressRing({ progress, size = 112, accessibilityLabel }: Progr
   const center = size / 2;
   const radius = center / (1 + STROKE_RATIO / 2);
   const strokeWidth = radius * STROKE_RATIO;
-  const circumference = 2 * Math.PI * radius;
+  const arcLength = (ARC_SWEEP / 360) * 2 * Math.PI * radius;
+  const arc = `M ${pointAt(center, radius, ARC_START)} A ${radius} ${radius} 0 1 1 ${pointAt(center, radius, ARC_START + ARC_SWEEP)}`;
   const [dotFrom, dotTo] = dotGradient[theme.colorScheme];
 
   useEffect(() => {
@@ -36,7 +45,7 @@ export function ProgressRing({ progress, size = 112, accessibilityLabel }: Progr
   }, [animated, fraction]);
 
   const arcProps = useAnimatedProps(() => ({
-    strokeDashoffset: circumference * (1 - animated.value),
+    strokeDashoffset: arcLength * (1 - animated.value),
     // A zero-length dash with round caps would still paint a dot.
     strokeOpacity: animated.value > 0.001 ? 1 : 0,
   }));
@@ -55,20 +64,16 @@ export function ProgressRing({ progress, size = 112, accessibilityLabel }: Progr
             <Stop offset="1" stopColor={dotTo} />
           </LinearGradient>
         </Defs>
-        <Circle cx={center} cy={center} r={radius} fill="none" stroke={theme.track} strokeWidth={strokeWidth} />
-        <G transform={`rotate(-90 ${center} ${center})`}>
-          <AnimatedCircle
-            cx={center}
-            cy={center}
-            r={radius}
-            fill="none"
-            stroke={theme.ring}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={[circumference, circumference]}
-            animatedProps={arcProps}
-          />
-        </G>
+        <Path d={arc} fill="none" stroke={theme.track} strokeWidth={strokeWidth} strokeLinecap="round" />
+        <AnimatedPath
+          d={arc}
+          fill="none"
+          stroke={theme.ring}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={[arcLength, arcLength]}
+          animatedProps={arcProps}
+        />
         <Circle cx={center} cy={center} r={radius * DOT_RATIO} fill={`url(#${gradientId})`} />
       </Svg>
     </View>

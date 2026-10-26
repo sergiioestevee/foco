@@ -70,7 +70,7 @@ export function ExamFormSheet({ exam, onClose }: ExamFormSheetProps) {
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <Field label="Asignatura">
                 {orderedSubjects.length ? (
                   <View style={styles.chips} accessibilityRole="radiogroup">
@@ -226,12 +226,14 @@ function Stepper({ label, icon, disabled, onPress }: { label: string; icon: 'plu
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
   keyboard: { maxHeight: '94%' },
-  sheet: { borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
+  // flexShrink lets the sheet and its list fit inside the 94% cap, so a long form scrolls to its last button.
+  sheet: { flexShrink: 1, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
+  scroll: { flexShrink: 1 },
   handle: { width: 36, height: 5, borderRadius: 3, alignSelf: 'center', opacity: 0.45, marginBottom: spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
   headerTitle: { flex: 1 },
   close: { width: minTouchSize, height: minTouchSize, borderRadius: minTouchSize / 2, alignItems: 'center', justifyContent: 'center' },
-  form: { gap: spacing.lg, paddingBottom: spacing.md },
+  form: { gap: spacing.lg, paddingBottom: spacing.xl },
   field: { gap: spacing.xs },
   fieldLabel: { fontSize: 14, fontWeight: '600' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },

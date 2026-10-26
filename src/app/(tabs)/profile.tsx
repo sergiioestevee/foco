@@ -1,17 +1,17 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AppScreen } from '@/components/app-screen';
 import { ScreenHeader } from '@/components/screen-header';
 import { Surface } from '@/components/surface';
 import { Typography } from '@/components/typography';
+import { AiMemorySection } from '@/features/assistant/ai-memory-section';
 import { useFocoStore } from '@/store/use-foco-store';
 import { requestTaskReminderPermission } from '@/services/notification-service';
 import { useTheme } from '@/theme/use-theme';
-import { fonts } from '@/theme/fonts';
-import { radii, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
 import type { ThemeMode } from '@/types/models';
 
 const themeOptions: { value: ThemeMode; label: string }[] = [
@@ -27,9 +27,7 @@ export default function ProfileScreen() {
   const updateSettings = useFocoStore((state) => state.updateSettings);
   const loadDemoData = useFocoStore((state) => state.loadDemoData);
   const clearData = useFocoStore((state) => state.clearData);
-  const [aiBackendUrl, setAiBackendUrl] = useState(settings.aiBackendUrl ?? '');
   const [showDemoNotice, setShowDemoNotice] = useState(false);
-  const [backendSaved, setBackendSaved] = useState(false);
 
   const confirmReset = () => {
     Alert.alert(
@@ -145,30 +143,7 @@ export default function ProfileScreen() {
         ) : null}
       </Surface>
 
-      <Surface style={styles.section}>
-        <Typography kind="heading">Asistente de IA</Typography>
-        <Typography kind="secondary">Sin endpoint configurado, el asistente usa sugerencias locales de demostración. Puedes conectar un backend propio aquí.</Typography>
-        <TextInput
-          accessibilityLabel="URL del backend privado del asistente"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          onChangeText={(value) => { setAiBackendUrl(value); setBackendSaved(false); }}
-          placeholder="https://tu-servidor.example/api/foco"
-          placeholderTextColor={theme.muted}
-          style={[styles.endpointInput, { backgroundColor: theme.bg, borderColor: theme.line, color: theme.text }]}
-          value={aiBackendUrl}
-        />
-        <Typography kind="caption">No introduzcas una clave de API en la app. Configúrala en el servidor; al usar un endpoint, el contexto de Foco se enviará a ese backend.</Typography>
-        <ActionButton
-          label={backendSaved ? 'Endpoint guardado' : 'Guardar endpoint'}
-          variant="secondary"
-          onPress={() => {
-            updateSettings({ aiBackendUrl: aiBackendUrl.trim() });
-            setBackendSaved(true);
-          }}
-        />
-      </Surface>
+      <AiMemorySection />
 
       <Surface style={styles.section}>
         <Typography kind="heading">Asignaturas</Typography>
@@ -209,5 +184,4 @@ const styles = StyleSheet.create({
   settingCopy: { flex: 1, gap: spacing.xxs },
   reminderOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   reminderChoice: { minHeight: 40, minWidth: 56, paddingHorizontal: spacing.sm, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  endpointInput: { minHeight: 48, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 15, fontFamily: fonts.medium },
 });

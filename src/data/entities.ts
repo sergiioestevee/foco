@@ -13,6 +13,10 @@ export const collectionEntities = {
   goal: 'goals',
   scheduleBlock: 'scheduleBlocks',
   studyBlock: 'studyBlocks',
+  routine: 'routines',
+  chat: 'chats',
+  chatMessage: 'chatMessages',
+  aiMemory: 'aiMemories',
 } as const satisfies Record<string, keyof FocoState>;
 
 export const singletonEntities = {

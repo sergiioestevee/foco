@@ -4,8 +4,8 @@ import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg'
 import { useTheme } from '@/theme/use-theme';
 import { dotGradient } from '@/theme/tokens';
 
-/** The open ring with the indigo dot, cropped to its bounds (same crop as the splash image). */
-export function FocoLogo({ size = 56 }: { size?: number }) {
+/** The open ring with the indigo dot, cropped to its bounds (same crop as the splash image). `color` draws it in one colour, e.g. as an icon. */
+export function FocoLogo({ size = 56, color }: { size?: number; color?: string }) {
   const theme = useTheme();
   const gradientId = `logo-dot-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const [dotFrom, dotTo] = dotGradient[theme.colorScheme];
@@ -18,8 +18,8 @@ export function FocoLogo({ size = 56 }: { size?: number }) {
           <Stop offset="1" stopColor={dotTo} />
         </LinearGradient>
       </Defs>
-      <Path d="M 746.9 426.5 A 250 250 0 1 1 555.4 265.8" fill="none" stroke={theme.ring} strokeWidth={58} strokeLinecap="round" />
-      <Circle cx={512} cy={512} r={84} fill={`url(#${gradientId})`} />
+      <Path d="M 746.9 426.5 A 250 250 0 1 1 555.4 265.8" fill="none" stroke={color ?? theme.ring} strokeWidth={58} strokeLinecap="round" />
+      <Circle cx={512} cy={512} r={84} fill={color ?? `url(#${gradientId})`} />
     </Svg>
   );
 }

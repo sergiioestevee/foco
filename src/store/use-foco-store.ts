@@ -7,11 +7,15 @@ import { defaultSubjects } from '@/features/subjects/default-subjects';
 import { createDemoData } from '@/services/demo-data';
 import { createId } from '@/utils/ids';
 import type {
+  AiMemory,
   AppSettings,
+  Chat,
+  ChatMessage,
   CategoryFields,
   Exam,
   Goal,
   PersonalProject,
+  Routine,
   ScheduleBlock,
   StudyBlock,
   Subject,
@@ -24,12 +28,18 @@ const initialSettings: AppSettings = {
   includeOverdueInDailyProgress: false,
   notificationsEnabled: false,
   reminderMinutesBefore: 30,
-  aiBackendUrl: '',
 };
 
 export type NewTask = Pick<Task, 'title' | 'notes' | 'dueDate' | 'priority' | 'goalId'> & Partial<Pick<Task, 'kind'>> & CategoryFields;
 export type NewExam = Omit<Exam, 'id' | 'createdAt'>;
 export type NewStudyBlock = Omit<StudyBlock, 'id' | 'createdAt' | 'completed' | 'completedAt'>;
+export type NewRoutine = Omit<Routine, 'id' | 'createdAt' | 'completedDates'>;
+
+/** Completion history kept per routine; enough for streaks and the week view. */
+const ROUTINE_HISTORY_DAYS = 120;
+const MAX_AI_MEMORIES = 30;
+
+export type NewChatMessage = Omit<ChatMessage, 'id' | 'createdAt' | 'planAdded' | 'actionsApplied'>;
 
 export type FocoState = {
   subjects: Subject[];
@@ -39,6 +49,10 @@ export type FocoState = {
   goals: Goal[];
   scheduleBlocks: ScheduleBlock[];
   studyBlocks: StudyBlock[];
+  routines: Routine[];
+  chats: Chat[];
+  chatMessages: ChatMessage[];
+  aiMemories: AiMemory[];
   settings: AppSettings;
   profile: UserProfile | null;
   hasCompletedFirstRun: boolean;
@@ -64,6 +78,22 @@ export type FocoState = {
   updateStudyBlock: (id: string, changes: Partial<NewStudyBlock>) => void;
   toggleStudyBlockCompleted: (id: string) => void;
   deleteStudyBlock: (id: string) => void;
+  addRoutine: (routine: NewRoutine) => string;
+  updateRoutine: (id: string, changes: Partial<NewRoutine>) => void;
+  /** Marks or unmarks a routine as done on a day (yyyy-MM-dd). */
+  toggleRoutineDone: (id: string, day: string) => void;
+  deleteRoutine: (id: string) => void;
+  createChat: () => string;
+  renameChat: (id: string, title: string) => void;
+  updateChatSummary: (id: string, summary: string) => void;
+  deleteChat: (id: string) => void;
+  addChatMessage: (message: NewChatMessage) => string;
+  markPlanAdded: (messageId: string) => void;
+  markActionsApplied: (messageId: string) => void;
+  /** Adds new memories, skipping duplicates; keeps the most recent ones. */
+  addAiMemories: (texts: string[]) => void;
+  deleteAiMemory: (id: string) => void;
+  clearAiMemories: () => void;
   addGoal: (goal: Omit<Goal, 'id'>) => string;
   updateGoal: (id: string, changes: Partial<Omit<Goal, 'id'>>) => void;
   linkTaskToGoal: (taskId: string, goalId: string | null) => void;
@@ -90,6 +120,10 @@ export const useFocoStore = create<FocoState>()(
       goals: [],
       scheduleBlocks: [],
       studyBlocks: [],
+      routines: [],
+      chats: [],
+      chatMessages: [],
+      aiMemories: [],
       settings: initialSettings,
       profile: null,
       hasCompletedFirstRun: false,
@@ -184,6 +218,7 @@ export const useFocoStore = create<FocoState>()(
               : block),
             exams: state.exams.map((exam) => exam.subjectId === id ? { ...exam, subjectId: null } : exam),
             studyBlocks: state.studyBlocks.map((block) => block.subjectId === id ? { ...block, subjectId: null } : block),
+            routines: state.routines.map((routine) => routine.subjectId === id ? { ...routine, subjectId: null } : routine),
           };
         }),
 
@@ -329,6 +364,103 @@ export const useFocoStore = create<FocoState>()(
       deleteStudyBlock: (id) =>
         set((state) => ({ studyBlocks: state.studyBlocks.filter((block) => block.id !== id) })),
 
+      addRoutine: (input) => {
+        const routine: Routine = {
+          ...input,
+          id: createId(),
+          title: input.title.trim(),
+          weekdays: [...new Set(input.weekdays)].sort((left, right) => left - right),
+          completedDates: [],
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({ routines: [...state.routines, routine] }));
+        return routine.id;
+      },
+
+      updateRoutine: (id, changes) =>
+        set((state) => ({
+          routines: state.routines.map((routine) => routine.id === id
+            ? {
+                ...routine,
+                ...changes,
+                title: changes.title?.trim() ?? routine.title,
+                weekdays: changes.weekdays ? [...new Set(changes.weekdays)].sort((left, right) => left - right) : routine.weekdays,
+              }
+            : routine),
+        })),
+
+      toggleRoutineDone: (id, day) =>
+        set((state) => ({
+          routines: state.routines.map((routine) => {
+            if (routine.id !== id) return routine;
+            const completedDates = routine.completedDates.includes(day)
+              ? routine.completedDates.filter((item) => item !== day)
+              : [...routine.completedDates, day].sort().slice(-ROUTINE_HISTORY_DAYS);
+            return { ...routine, completedDates };
+          }),
+        })),
+
+      deleteRoutine: (id) =>
+        set((state) => ({ routines: state.routines.filter((routine) => routine.id !== id) })),
+
+      createChat: () => {
+        const now = new Date().toISOString();
+        const chat: Chat = { id: createId(), title: 'Nuevo chat', summary: '', createdAt: now, updatedAt: now };
+        set((state) => ({ chats: [...state.chats, chat] }));
+        return chat.id;
+      },
+
+      renameChat: (id, title) =>
+        set((state) => ({
+          chats: state.chats.map((chat) => chat.id === id ? { ...chat, title: title.trim() || chat.title } : chat),
+        })),
+
+      updateChatSummary: (id, summary) =>
+        set((state) => ({
+          chats: state.chats.map((chat) => chat.id === id ? { ...chat, summary: summary.trim() } : chat),
+        })),
+
+      deleteChat: (id) =>
+        set((state) => ({
+          chats: state.chats.filter((chat) => chat.id !== id),
+          chatMessages: state.chatMessages.filter((message) => message.chatId !== id),
+        })),
+
+      addChatMessage: (input) => {
+        const message: ChatMessage = { ...input, id: createId(), planAdded: false, createdAt: new Date().toISOString() };
+        set((state) => ({
+          chatMessages: [...state.chatMessages, message],
+          chats: state.chats.map((chat) => chat.id === input.chatId ? { ...chat, updatedAt: message.createdAt } : chat),
+        }));
+        return message.id;
+      },
+
+      markPlanAdded: (messageId) =>
+        set((state) => ({
+          chatMessages: state.chatMessages.map((message) => message.id === messageId ? { ...message, planAdded: true } : message),
+        })),
+
+      markActionsApplied: (messageId) =>
+        set((state) => ({
+          chatMessages: state.chatMessages.map((message) => message.id === messageId ? { ...message, actionsApplied: true } : message),
+        })),
+
+      addAiMemories: (texts) =>
+        set((state) => {
+          const known = new Set(state.aiMemories.map((memory) => memory.text.toLocaleLowerCase()));
+          const additions = texts
+            .map((text) => text.trim())
+            .filter((text) => text && !known.has(text.toLocaleLowerCase()))
+            .map((text): AiMemory => ({ id: createId(), text, createdAt: new Date().toISOString() }));
+          if (!additions.length) return state;
+          return { aiMemories: [...state.aiMemories, ...additions].slice(-MAX_AI_MEMORIES) };
+        }),
+
+      deleteAiMemory: (id) =>
+        set((state) => ({ aiMemories: state.aiMemories.filter((memory) => memory.id !== id) })),
+
+      clearAiMemories: () => set({ aiMemories: [] }),
+
       addGoal: (input) => {
         const goal: Goal = {
           ...input,
@@ -395,13 +527,14 @@ export const useFocoStore = create<FocoState>()(
       },
 
       clearData: () => set({
-        subjects: [], projects: [], tasks: [], exams: [], goals: [], scheduleBlocks: [], studyBlocks: [],
+        subjects: [], projects: [], tasks: [], exams: [], goals: [], scheduleBlocks: [], studyBlocks: [], routines: [],
+        chats: [], chatMessages: [], aiMemories: [],
         settings: initialSettings, profile: null, hasCompletedFirstRun: false,
       }),
     }),
     {
       name: 'foco-local-v1',
-      version: 4,
+      version: 7,
       migrate: (persisted, version) => {
         let state = (persisted ?? {}) as Partial<FocoState>;
         // v2: profile moved from { age, focusGoals } to { studies, focusTime }.
@@ -416,6 +549,19 @@ export const useFocoStore = create<FocoState>()(
         }
         // v4: dated study blocks.
         if (version < 4) state = { ...state, studyBlocks: state.studyBlocks ?? [] };
+        // v5: routines.
+        if (version < 5) state = { ...state, routines: state.routines ?? [] };
+        // v6: Foco IA chats and memory.
+        if (version < 6) {
+          state = {
+            ...state,
+            chats: state.chats ?? [],
+            chatMessages: state.chatMessages ?? [],
+            aiMemories: state.aiMemories ?? [],
+          };
+        }
+        // v7: per-chat summary.
+        if (version < 7) state = { ...state, chats: (state.chats ?? []).map((chat) => ({ ...chat, summary: chat.summary ?? '' })) };
         return state;
       },
       storage: createJSONStorage(() => AsyncStorage),
@@ -427,6 +573,10 @@ export const useFocoStore = create<FocoState>()(
         goals: state.goals,
         scheduleBlocks: state.scheduleBlocks,
         studyBlocks: state.studyBlocks,
+        routines: state.routines,
+        chats: state.chats,
+        chatMessages: state.chatMessages,
+        aiMemories: state.aiMemories,
         settings: state.settings,
         profile: state.profile,
         hasCompletedFirstRun: state.hasCompletedFirstRun,

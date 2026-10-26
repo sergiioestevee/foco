@@ -15,7 +15,7 @@ export function Typography({ kind = 'body', style, children, ...props }: Typogra
     styles[kind],
     { color: kind === 'secondary' || kind === 'caption' ? theme.muted : theme.text },
     style,
-  ]);
+  ]) ?? {};
 
   return (
     <Text allowFontScaling {...props} style={[flattened, { fontFamily: fontForWeight(fontWeight) }]}>

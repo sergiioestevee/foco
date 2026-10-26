@@ -5,7 +5,10 @@
 create table public.user_records (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   entity text not null check (
-    entity in ('subject', 'project', 'task', 'exam', 'goal', 'scheduleBlock', 'studyBlock', 'profile', 'settings')
+    entity in (
+      'subject', 'project', 'task', 'exam', 'goal', 'scheduleBlock', 'studyBlock', 'routine',
+      'chat', 'chatMessage', 'aiMemory', 'profile', 'settings'
+    )
   ),
   id text not null check (char_length(id) between 1 and 100),
   data jsonb check (data is null or octet_length(data::text) <= 65536),
