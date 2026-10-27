@@ -11,7 +11,7 @@ export function ScreenHeader({ title, subtitle, children }: ScreenHeaderProps) {
     <View style={styles.row}>
       <View style={styles.copy}>
         <Typography kind="title">{title}</Typography>
-        {subtitle ? <Typography kind="secondary">{subtitle}</Typography> : null}
+        {subtitle ? <Typography kind="secondary" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{subtitle}</Typography> : null}
       </View>
       {children}
     </View>

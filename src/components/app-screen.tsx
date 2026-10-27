@@ -17,6 +17,9 @@ export function AppScreen({ children, scroll = true, bottomContent }: AppScreenP
     <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: theme.bg }]}>
       {scroll ? (
         <ScrollView
+          // React Native turns iOS inset adjustment off by default; on a tab this lets the end of the
+          // content scroll clear of the floating tab bar instead of hiding under it.
+          contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
