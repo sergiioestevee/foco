@@ -9,7 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { startSyncTracking } from '@/data/sync-engine';
 import { BOOT_MIN_DURATION, BootScreen } from '@/features/entry/boot-screen';
 import { useFocoStore } from '@/store/use-foco-store';
-import { syncTaskReminders } from '@/services/notification-service';
+import { syncReminders } from '@/services/notification-service';
 import { fontAssets } from '@/theme/fonts';
 import { useTheme } from '@/theme/use-theme';
 
@@ -23,8 +23,9 @@ export default function RootLayout() {
   const hasCompletedFirstRun = useFocoStore((state) => state.hasCompletedFirstRun);
   const profile = useFocoStore((state) => state.profile);
   const tasks = useFocoStore((state) => state.tasks);
-  const notificationsEnabled = useFocoStore((state) => state.settings.notificationsEnabled);
-  const reminderMinutesBefore = useFocoStore((state) => state.settings.reminderMinutesBefore);
+  const exams = useFocoStore((state) => state.exams);
+  const routines = useFocoStore((state) => state.routines);
+  const settings = useFocoStore((state) => state.settings);
   const segments = useSegments();
   const isEntryFlow = segments[0] === 'welcome' || segments[0] === 'account' || segments[0] === 'onboarding';
   const [bootMinElapsed, setBootMinElapsed] = useState(false);
@@ -53,8 +54,8 @@ export default function RootLayout() {
   }, [fontsReady]);
 
   useEffect(() => {
-    if (hasHydrated) void syncTaskReminders(tasks, { notificationsEnabled, reminderMinutesBefore }).catch(() => undefined);
-  }, [hasHydrated, notificationsEnabled, reminderMinutesBefore, tasks]);
+    if (hasHydrated) void syncReminders({ tasks, exams, routines }, settings).catch(() => undefined);
+  }, [hasHydrated, settings, tasks, exams, routines]);
 
   if (!fontsReady) return null;
 

@@ -178,8 +178,12 @@ export type ScheduleBlock = CategoryFields & {
 export type AppSettings = {
   themeMode: ThemeMode;
   includeOverdueInDailyProgress: boolean;
+  /** Master switch; the three below pick what gets a reminder. */
   notificationsEnabled: boolean;
   reminderMinutesBefore: number;
+  taskReminders: boolean;
+  examReminders: boolean;
+  routineReminders: boolean;
 };
 
 export type CategorySelection =

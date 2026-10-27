@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AppScreen } from '@/components/app-screen';
@@ -8,8 +8,8 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Surface } from '@/components/surface';
 import { Typography } from '@/components/typography';
 import { AiMemorySection } from '@/features/assistant/ai-memory-section';
+import { NotificationSettings } from '@/features/notifications/notification-settings';
 import { useFocoStore } from '@/store/use-foco-store';
-import { requestTaskReminderPermission } from '@/services/notification-service';
 import { useTheme } from '@/theme/use-theme';
 import { spacing } from '@/theme/tokens';
 import type { ThemeMode } from '@/types/models';
@@ -19,7 +19,6 @@ const themeOptions: { value: ThemeMode; label: string }[] = [
   { value: 'light', label: 'Claro' },
   { value: 'dark', label: 'Oscuro' },
 ];
-const reminderOptions = [5, 10, 15, 30, 60];
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -38,20 +37,6 @@ export default function ProfileScreen() {
         { text: 'Restablecer', style: 'destructive', onPress: clearData },
       ],
     );
-  };
-
-  const handleNotificationsChange = async (enabled: boolean) => {
-    if (!enabled) {
-      updateSettings({ notificationsEnabled: false });
-      return;
-    }
-    try {
-      const granted = await requestTaskReminderPermission();
-      if (granted) updateSettings({ notificationsEnabled: true });
-      else Alert.alert('Permiso no concedido', 'Activa las notificaciones de Foco en los ajustes del dispositivo para recibir recordatorios.');
-    } catch {
-      Alert.alert('No se pudieron activar', 'Inténtalo de nuevo desde los ajustes del dispositivo.');
-    }
   };
 
   return (
@@ -106,41 +91,7 @@ export default function ProfileScreen() {
 
       <Surface style={styles.section}>
         <Typography kind="heading">Recordatorios</Typography>
-        <View style={styles.settingRow}>
-          <View style={styles.settingCopy}>
-            <Typography>Recordatorios de tareas</Typography>
-            <Typography kind="caption">Aviso antes de la hora límite estimada de las 18:00.</Typography>
-          </View>
-          <Switch
-            accessibilityLabel="Activar recordatorios de tareas"
-            disabled={Platform.OS === 'web'}
-            value={settings.notificationsEnabled}
-            onValueChange={(value) => void handleNotificationsChange(value)}
-            trackColor={{ true: theme.accent, false: theme.line }}
-          />
-        </View>
-        {Platform.OS === 'web' ? <Typography kind="caption">Los recordatorios están disponibles en iOS y Android.</Typography> : null}
-        {settings.notificationsEnabled ? (
-          <>
-            <Typography kind="caption">Antelación</Typography>
-            <View style={styles.reminderOptions} accessibilityRole="radiogroup">
-              {reminderOptions.map((minutes) => {
-                const selected = settings.reminderMinutesBefore === minutes;
-                return (
-                  <Pressable
-                    key={minutes}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`${minutes} minutos antes`}
-                    accessibilityState={{ selected }}
-                    onPress={() => updateSettings({ reminderMinutesBefore: minutes })}
-                    style={[styles.reminderChoice, { backgroundColor: selected ? theme.accent : theme.track }]}>
-                    <Typography style={{ color: selected ? theme.accentInk : theme.text, fontWeight: '600' }}>{minutes} min</Typography>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        ) : null}
+        <NotificationSettings />
       </Surface>
 
       <AiMemorySection />
@@ -182,6 +133,4 @@ const styles = StyleSheet.create({
   choice: { minHeight: 42, flex: 1, paddingHorizontal: spacing.sm, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   settingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   settingCopy: { flex: 1, gap: spacing.xxs },
-  reminderOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  reminderChoice: { minHeight: 40, minWidth: 56, paddingHorizontal: spacing.sm, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });

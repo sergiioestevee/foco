@@ -28,6 +28,9 @@ const initialSettings: AppSettings = {
   includeOverdueInDailyProgress: false,
   notificationsEnabled: false,
   reminderMinutesBefore: 30,
+  taskReminders: true,
+  examReminders: true,
+  routineReminders: true,
 };
 
 export type NewTask = Pick<Task, 'title' | 'notes' | 'dueDate' | 'priority' | 'goalId'> & Partial<Pick<Task, 'kind' | 'dueTime'>> & CategoryFields;
@@ -538,7 +541,7 @@ export const useFocoStore = create<FocoState>()(
     }),
     {
       name: 'foco-local-v1',
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => {
         let state = (persisted ?? {}) as Partial<FocoState>;
         // v2: profile moved from { age, focusGoals } to { studies, focusTime }.
@@ -568,6 +571,8 @@ export const useFocoStore = create<FocoState>()(
         if (version < 7) state = { ...state, chats: (state.chats ?? []).map((chat) => ({ ...chat, summary: chat.summary ?? '' })) };
         // v8: optional due time on tasks.
         if (version < 8) state = { ...state, tasks: (state.tasks ?? []).map((task) => ({ ...task, dueTime: task.dueTime ?? null })) };
+        // v9: reminders per kind (tasks, exams, routines).
+        if (version < 9) state = { ...state, settings: { ...initialSettings, ...state.settings } };
         return state;
       },
       storage: createJSONStorage(() => AsyncStorage),
