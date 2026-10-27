@@ -280,3 +280,16 @@ function sanitizeAction(raw: unknown, today: string): ActionItem | null {
   if (type === 'update_exam' && action.date && action.date < today) return null;
   return action;
 }
+
+export type FailureCause = { kind: 'network' } | { kind: 'provider'; status: number } | { kind: 'output' };
+
+/**
+ * Whether a failed request gives the student's message back. Only infrastructure failures do (no network,
+ * provider overloaded or down): refunding errors a student can provoke, like unusable output or a 4xx,
+ * would let anyone loop for free on the shared provider key.
+ */
+export function shouldRefund(cause: FailureCause): boolean {
+  if (cause.kind === 'network') return true;
+  if (cause.kind === 'provider') return cause.status === 429 || cause.status >= 500;
+  return false;
+}

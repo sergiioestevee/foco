@@ -82,11 +82,11 @@ export function buildSubjectBoard({ tasks, exams, subjects, projects }: BoardInp
   return [...subjectCards, ...projectCards, ...(none.pending.length || none.exams.length || none.completed.length ? [none] : [])];
 }
 
-/** One-line status of a folded card: «examen en 12 días», «3 pendientes» or «al día». */
+/** One-line status of a folded card: «Examen en 12 días», «3 pendientes» or «Al día». */
 export function collapsedLabel(card: BoardCard, now = new Date()): string {
-  if (card.exams.length) return `examen ${formatCountdown(card.exams[0].date, now)}`;
+  if (card.exams.length) return `Examen ${formatCountdown(card.exams[0].date, now)}`;
   if (card.pending.length) return `${card.pending.length} ${card.pending.length === 1 ? 'pendiente' : 'pendientes'}`;
-  return 'al día';
+  return 'Al día';
 }
 
 export type DateItem = { type: 'task'; task: Task } | { type: 'exam'; exam: Exam };

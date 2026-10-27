@@ -1,8 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
 import { ScreenHeader } from '@/components/screen-header';
@@ -10,7 +9,7 @@ import { SegmentedControl } from '@/components/segmented-control';
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
 import { ExamFormSheet } from '@/features/exams/exam-form-sheet';
-import { AddMenu, showAddMenu, type AddChoice } from '@/features/tasks/add-menu';
+import { AddButton, AddMenu, type AddMenuOption } from '@/features/tasks/add-menu';
 import { ByDateList } from '@/features/tasks/by-date-list';
 import { PinnedCards } from '@/features/tasks/pinned-cards';
 import { SubjectCard } from '@/features/tasks/subject-card';
@@ -22,6 +21,13 @@ import { minTouchSize, radii, spacing } from '@/theme/tokens';
 import type { Exam, Task } from '@/types/models';
 
 type BoardView = 'subjects' | 'dates';
+type AddChoice = 'task' | 'exam';
+
+// Routines and goals are created inside their own sheets, which keeps this menu short.
+const addOptions: AddMenuOption<AddChoice>[] = [
+  { value: 'task', label: 'Tarea', ios: 'checklist', md: 'checklist' },
+  { value: 'exam', label: 'Examen', ios: 'graduationcap', md: 'school' },
+];
 
 const viewOptions = [
   { value: 'subjects', label: 'Por asignatura' },
@@ -30,9 +36,6 @@ const viewOptions = [
 
 export default function TasksScreen() {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const tabBarClearance = Platform.OS === 'ios' ? 56 : Platform.OS === 'android' ? 8 : 0;
-  const fabBottom = insets.bottom + spacing.lg + tabBarClearance;
   // goalId / categoryId+categoryType come from «Ver tareas» in Metas; examId from Inicio › Próximo examen.
   const params = useLocalSearchParams<{ goalId?: string; categoryId?: string; categoryType?: string; examId?: string }>();
   const tasks = useFocoStore((state) => state.tasks);
@@ -49,7 +52,8 @@ export default function TasksScreen() {
   // undefined: closed, null: creating, value: editing.
   const [editingTask, setEditingTask] = useState<Task | null | undefined>(undefined);
   const [editingExam, setEditingExam] = useState<Exam | null | undefined>(undefined);
-  const [addMenuVisible, setAddMenuVisible] = useState(false);
+  // Screen Y of the tap on the add button, or null when the menu is closed.
+  const [addMenuAnchor, setAddMenuAnchor] = useState<number | null>(null);
 
   const goalFilter = params.goalId ? goals.find((goal) => goal.id === params.goalId) : undefined;
   const projectFilter = params.categoryType === 'project' ? projects.find((project) => project.id === params.categoryId) : undefined;
@@ -88,9 +92,7 @@ export default function TasksScreen() {
 
   const add = (choice: AddChoice) => {
     if (choice === 'task') setEditingTask(null);
-    else if (choice === 'exam') setEditingExam(null);
-    else if (choice === 'routine') router.push({ pathname: '/routines', params: { create: '1' } });
-    else router.push({ pathname: '/goals', params: { create: choice } });
+    else setEditingExam(null);
   };
 
   const handlers = { onToggleTask: toggleTask, onEditTask: (task: Task) => setEditingTask(task), onEditExam: (exam: Exam) => setEditingExam(exam) };
@@ -99,16 +101,10 @@ export default function TasksScreen() {
 
   return (
     <>
-      <AppScreen bottomContent={(
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Añadir"
-          onPress={() => (Platform.OS === 'ios' ? showAddMenu(add) : setAddMenuVisible(true))}
-          style={[styles.fab, { backgroundColor: theme.accent, shadowColor: theme.shadow, bottom: fabBottom }]}>
-          <SymbolIcon ios="plus" other="add" color={theme.accentInk} size={24} />
-        </Pressable>
-      )}>
-        <ScreenHeader title="Tareas" />
+      <AppScreen>
+        <ScreenHeader title="Tareas">
+          <AddButton accessibilityLabel="Añadir tarea o examen" onPress={setAddMenuAnchor} />
+        </ScreenHeader>
         <PinnedCards />
 
         {filterLabel ? (
@@ -138,7 +134,7 @@ export default function TasksScreen() {
                   <SymbolIcon ios="checklist" other="checklist" color={theme.accent} size={25} />
                 </View>
                 <Typography kind="heading">Un paso cada vez</Typography>
-                <Typography kind="secondary">Añade una tarea o un examen con el botón +.</Typography>
+                <Typography kind="secondary">Añade una tarea o un examen con el botón de arriba.</Typography>
               </View>
             ) : view === 'subjects' ? (
               <View style={styles.board}>
@@ -149,7 +145,6 @@ export default function TasksScreen() {
             )}
           </>
         )}
-        <View style={styles.fabSpacer} />
       </AppScreen>
 
       {editingTask !== undefined ? (
@@ -164,7 +159,13 @@ export default function TasksScreen() {
         />
       ) : null}
       {examInForm !== undefined ? <ExamFormSheet exam={examInForm} onClose={closeExam} /> : null}
-      {Platform.OS !== 'ios' ? <AddMenu visible={addMenuVisible} onPick={add} onClose={() => setAddMenuVisible(false)} /> : null}
+      <AddMenu
+        visible={addMenuAnchor !== null}
+        anchorY={addMenuAnchor ?? 0}
+        options={addOptions}
+        onPick={add}
+        onClose={() => setAddMenuAnchor(null)}
+      />
     </>
   );
 }
@@ -186,6 +187,4 @@ const styles = StyleSheet.create({
   chipText: { flexShrink: 1, fontWeight: '700' },
   empty: { alignItems: 'center', gap: spacing.sm, padding: spacing.xl, borderRadius: radii.card, marginTop: spacing.lg },
   emptyIcon: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs },
-  fabSpacer: { height: 88 },
-  fab: { position: 'absolute', right: spacing.lg, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 7 },
 });

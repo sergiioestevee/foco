@@ -7,6 +7,7 @@ import {
   parseRequest,
   RESPONSE_SCHEMA,
   sanitizeReply,
+  shouldRefund,
 } from '../supabase/functions/foco-ai/logic.ts';
 
 const valid = {
@@ -175,6 +176,21 @@ describe('sanitizeReply', () => {
 
   test('rejects an empty message', () => {
     assert.throws(() => sanitizeReply({ message: '  ' }, '2026-10-19'));
+  });
+});
+
+describe('shouldRefund', () => {
+  test('refunds infrastructure failures', () => {
+    assert.equal(shouldRefund({ kind: 'network' }), true);
+    assert.equal(shouldRefund({ kind: 'provider', status: 429 }), true);
+    assert.equal(shouldRefund({ kind: 'provider', status: 500 }), true);
+    assert.equal(shouldRefund({ kind: 'provider', status: 503 }), true);
+  });
+
+  test('never refunds what the student can provoke', () => {
+    assert.equal(shouldRefund({ kind: 'provider', status: 400 }), false);
+    assert.equal(shouldRefund({ kind: 'provider', status: 413 }), false);
+    assert.equal(shouldRefund({ kind: 'output' }), false);
   });
 });
 

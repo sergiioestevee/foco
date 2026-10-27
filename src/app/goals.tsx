@@ -1,21 +1,32 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
-import { SheetScreen, useOpenWhenSheetPresented } from '@/components/sheet-screen';
+import { SheetScreen } from '@/components/sheet-screen';
 import { GoalsView } from '@/features/goals/goals-view';
+import { AddButton, AddMenu, type AddMenuOption } from '@/features/tasks/add-menu';
 import type { CreateHandle } from '@/types/create-handle';
 
-/** Metas (objetivos y proyectos), as a sheet over Tareas. `?create=goal|project` opens that form straight away. */
-export default function GoalsSheet() {
-  const { create } = useLocalSearchParams<{ create?: string }>();
-  const viewRef = useRef<CreateHandle<'goal' | 'project'>>(null);
+type GoalKind = 'goal' | 'project';
 
-  const kind = create === 'goal' || create === 'project' ? create : null;
-  useOpenWhenSheetPresented(kind !== null, () => { if (kind) viewRef.current?.create(kind); });
+const addOptions: AddMenuOption<GoalKind>[] = [
+  { value: 'goal', label: 'Objetivo', ios: 'scope', md: 'adjust' },
+  { value: 'project', label: 'Proyecto', ios: 'folder', md: 'folder' },
+];
+
+/** Metas (objetivos y proyectos), as a sheet over Tareas. */
+export default function GoalsSheet() {
+  const viewRef = useRef<CreateHandle<GoalKind>>(null);
+  const [menuAnchor, setMenuAnchor] = useState<number | null>(null);
 
   return (
-    <SheetScreen title="Metas">
+    <SheetScreen title="Metas" action={<AddButton accessibilityLabel="Añadir objetivo o proyecto" onPress={setMenuAnchor} />}>
       <GoalsView ref={viewRef} />
+      <AddMenu
+        visible={menuAnchor !== null}
+        anchorY={menuAnchor ?? 0}
+        options={addOptions}
+        onPick={(kind) => viewRef.current?.create(kind)}
+        onClose={() => setMenuAnchor(null)}
+      />
     </SheetScreen>
   );
 }

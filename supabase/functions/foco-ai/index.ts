@@ -8,13 +8,17 @@ import {
   parseRequest,
   RESPONSE_SCHEMA,
   sanitizeReply,
+  shouldRefund,
   SYSTEM_INSTRUCTION,
+  type FailureCause,
   type FocoRequest,
 } from './logic.ts';
 
 /** 0 turns the quota off (for testing): `supabase secrets set FOCO_AI_DAILY_LIMIT=0`; unset it to go back to 30. */
 const DAILY_LIMIT = Number(Deno.env.get('FOCO_AI_DAILY_LIMIT') ?? '30');
 const QUOTA_ENABLED = DAILY_LIMIT > 0;
+/** Messages per day for all users together, so many (anonymous) accounts can't drain the shared provider key. */
+const GLOBAL_DAILY_LIMIT = Number(Deno.env.get('FOCO_AI_GLOBAL_DAILY_LIMIT') ?? '1000');
 /** "groq" (default, free plan without a card) or "gemini". */
 const PROVIDER = Deno.env.get('AI_PROVIDER') ?? 'groq';
 
@@ -81,17 +85,21 @@ export default {
     }
 
     if (QUOTA_ENABLED) {
-      const { data: allowed, error: quotaError } = await ctx.supabase.rpc('consume_ai_quota', { p_limit: DAILY_LIMIT });
+      const { data: quota, error: quotaError } = await ctx.supabase.rpc('consume_ai_quota', {
+        p_limit: DAILY_LIMIT,
+        p_global_limit: GLOBAL_DAILY_LIMIT,
+      });
       if (quotaError) {
         console.error('consume_ai_quota failed', quotaError.message);
         return json({ error: 'quota_check_failed' }, 500);
       }
-      if (!allowed) return json({ error: 'daily_limit', limit: DAILY_LIMIT }, 429);
+      if (quota === 'user_limit') return json({ error: 'daily_limit', limit: DAILY_LIMIT }, 429);
+      if (quota !== 'ok') return json({ error: 'busy' }, 503);
     }
 
-    // A failure on our side or the provider's shouldn't cost the student a message.
-    const refund = async () => {
-      if (!QUOTA_ENABLED) return;
+    // Infrastructure failures give the message back; failures a student can provoke don't (see shouldRefund).
+    const refund = async (cause: FailureCause) => {
+      if (!QUOTA_ENABLED || !shouldRefund(cause)) return;
       const userId = ctx.userClaims?.id;
       if (!userId) return;
       const { error } = await ctx.supabaseAdmin.rpc('refund_ai_quota', { p_user: userId });
@@ -103,17 +111,17 @@ export default {
       response = await provider.request(apiKey, buildInput(request));
     } catch (error) {
       console.error(`${PROVIDER} unreachable`, error instanceof Error ? error.message : 'unknown');
-      await refund();
+      await refund({ kind: 'network' });
       return json({ error: 'busy' }, 503);
     }
     if (response.status === 429) {
-      await refund();
+      await refund({ kind: 'provider', status: 429 });
       return json({ error: 'busy' }, 503);
     }
     if (!response.ok) {
       // Log only the status and the provider's error, never the student's data.
       console.error(`${PROVIDER} request failed`, response.status, (await response.text()).slice(0, 500));
-      await refund();
+      await refund({ kind: 'provider', status: response.status });
       return json({ error: 'ai_failed' }, 502);
     }
 
@@ -122,7 +130,7 @@ export default {
       return json(reply);
     } catch (error) {
       console.error('Unusable model output', error instanceof Error ? error.message : 'unknown');
-      await refund();
+      await refund({ kind: 'output' });
       return json({ error: 'ai_failed' }, 502);
     }
   },

@@ -1,19 +1,16 @@
-import { useLocalSearchParams } from 'expo-router';
 import { useRef } from 'react';
 
-import { SheetScreen, useOpenWhenSheetPresented } from '@/components/sheet-screen';
+import { SheetScreen } from '@/components/sheet-screen';
+import { AddButton } from '@/features/tasks/add-menu';
 import { RoutinesView } from '@/features/routines/routines-view';
 import type { CreateHandle } from '@/types/create-handle';
 
-/** Rutinas, as a sheet over Tareas. `?create=1` opens the new-routine form straight away (the Tareas + button). */
+/** Rutinas, as a sheet over Tareas. */
 export default function RoutinesSheet() {
-  const { create } = useLocalSearchParams<{ create?: string }>();
   const viewRef = useRef<CreateHandle>(null);
 
-  useOpenWhenSheetPresented(!!create, () => viewRef.current?.create());
-
   return (
-    <SheetScreen title="Rutinas">
+    <SheetScreen title="Rutinas" action={<AddButton accessibilityLabel="Añadir rutina" onPress={() => viewRef.current?.create()} />}>
       <RoutinesView ref={viewRef} />
     </SheetScreen>
   );

@@ -81,7 +81,7 @@ El comando genera los proyectos nativos cuando hace falta. Este repositorio usa 
 Foco IA llama a un modelo abierto a través de Groq (plan gratuito) desde la Edge Function supabase/functions/foco-ai. La clave es un secreto del servidor (GROQ_API_KEY) y nunca llega a la app. Gemini sigue disponible como alternativa con AI_PROVIDER=gemini y GEMINI_API_KEY.
 
 - **Sesión**: quien usa Foco sin cuenta entra con una sesión anónima de Supabase, invisible para el usuario.
-- **Límite**: 30 mensajes al día por usuario (FOCO_AI_DAILY_LIMIT), en la tabla ai_usage, con RLS activado y sin acceso directo desde la app. Si falla el servidor o el proveedor, el mensaje se devuelve al cupo; solo la función puede hacerlo.
+- **Límites**: 30 mensajes al día por usuario (FOCO_AI_DAILY_LIMIT) y 1000 al día entre todos (FOCO_AI_GLOBAL_DAILY_LIMIT), para que muchas cuentas anónimas no agoten la clave compartida. Las tablas ai_usage y ai_usage_global tienen RLS activado y no son accesibles desde la app. El mensaje solo se devuelve al cupo si falla la infraestructura (sin red, proveedor caído o saturado), nunca por errores que el usuario pueda provocar; y solo la función puede devolverlo.
 - **Resumen por chat**: la IA mantiene un resumen de cada chat y lo recibe junto a los últimos mensajes, así puede retomar la conversación otro día. Se ve arriba del chat.
 - **Datos enviados**: src/services/ai-context.ts decide qué recibe la IA: asignaturas, exámenes, tareas pendientes, bloques, rutinas, clases y huecos libres. Nunca el nombre, el correo, las notas ni identificadores. Las respuestas se validan en el servidor.
 - **Sin Supabase configurado**: la app responde con una demostración local.

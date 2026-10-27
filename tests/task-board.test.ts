@@ -110,9 +110,9 @@ describe('collapsedLabel', () => {
   }, now);
   const label = (name: string) => collapsedLabel(board.find((card) => card.category.name === name)!, now);
 
-  test('shows the exam countdown', () => assert.equal(label('Inglés'), 'examen en 12 días'));
+  test('shows the exam countdown', () => assert.equal(label('Inglés'), 'Examen en 12 días'));
   test('shows pending count', () => assert.equal(label('Física'), '3 pendientes'));
-  test('says it is up to date', () => assert.equal(label('Cálculo'), 'al día'));
+  test('says it is up to date', () => assert.equal(label('Cálculo'), 'Al día'));
 });
 
 describe('groupByDate', () => {
