@@ -66,8 +66,8 @@ export function AgendaRow({ item, onPress }: AgendaRowProps) {
   return (
     <View style={styles.row}>
       <View style={styles.time}>
-        <Typography style={styles.start}>{item.startTime}</Typography>
-        {item.endTime ? <Typography kind="caption">{item.endTime}</Typography> : null}
+        <Typography numberOfLines={1} allowFontScaling={false} style={styles.start}>{item.startTime}</Typography>
+        {item.endTime ? <Typography kind="caption" numberOfLines={1} allowFontScaling={false} style={styles.end}>{item.endTime}</Typography> : null}
       </View>
       <Pressable
         accessibilityRole="button"
@@ -104,8 +104,10 @@ export function AgendaRow({ item, onPress }: AgendaRowProps) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing.sm },
-  time: { width: 48, paddingTop: spacing.md, alignItems: 'flex-end' },
-  start: { fontSize: 15, fontWeight: '700' },
+  // Fixed-width digits, so 00:00 is as wide as 11:11 and every time stays on one line.
+  time: { width: 54, paddingTop: spacing.md, alignItems: 'flex-end' },
+  start: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  end: { fontVariant: ['tabular-nums'] },
   card: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radii.chip, borderWidth: StyleSheet.hairlineWidth, padding: spacing.md },
   bar: { width: 4, alignSelf: 'stretch', borderRadius: 2 },
   copy: { flex: 1, gap: 2 },
