@@ -39,3 +39,6 @@ yarn-error.*
 
 # brainstorming mockups (local only)
 .superpowers/
+
+# local backups
+*.bak
