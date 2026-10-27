@@ -1,3 +1,5 @@
+import { addDays, startOfWeek, subDays } from 'date-fns';
+
 import { toDayKey } from '@/features/calendar/calendar-utils';
 import type { Routine } from '@/types/models';
 
@@ -34,4 +36,41 @@ export function formatWeekdays(weekdays: number[]): string {
   if (days.size === 5 && [1, 2, 3, 4, 5].every((day) => days.has(day))) return 'De lunes a viernes';
   if (days.size === 2 && days.has(0) && days.has(6)) return 'Fines de semana';
   return weekdayOptions.filter((option) => days.has(option.value)).map((option) => option.short).join(' · ');
+}
+
+/** How far back a streak is looked for; completion history is kept for about this long. */
+const STREAK_LOOKBACK_DAYS = 120;
+
+/**
+ * Due days in a row on which the routine was done. Days it isn't due don't break it, and neither
+ * does today while it's still pending.
+ */
+export function getRoutineStreak(routine: Routine, now = new Date()): number {
+  let streak = 0;
+  for (let offset = 0; offset < STREAK_LOOKBACK_DAYS; offset += 1) {
+    const day = subDays(now, offset);
+    if (!isRoutineDue(routine, day)) continue;
+    if (isRoutineDoneOn(routine, day)) streak += 1;
+    else if (offset > 0) break;
+  }
+  return streak;
+}
+
+/** This week (Monday to today): how many times it was due and how many of those it was done. */
+export function getRoutineWeekStats(routine: Routine, now = new Date()): { done: number; due: number } {
+  const monday = startOfWeek(now, { weekStartsOn: 1 });
+  let done = 0;
+  let due = 0;
+  for (let day = monday; toDayKey(day) <= toDayKey(now); day = addDays(day, 1)) {
+    if (!isRoutineDue(routine, day)) continue;
+    due += 1;
+    if (isRoutineDoneOn(routine, day)) done += 1;
+  }
+  return { done, due };
+}
+
+export function summarizeRoutinesWeek(routines: Routine[], now = new Date()): { done: number; due: number } {
+  return routines
+    .map((routine) => getRoutineWeekStats(routine, now))
+    .reduce((total, stats) => ({ done: total.done + stats.done, due: total.due + stats.due }), { done: 0, due: 0 });
 }

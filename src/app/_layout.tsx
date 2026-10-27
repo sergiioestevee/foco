@@ -71,8 +71,8 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="subjects" options={{ presentation: 'modal' }} />
               <Stack.Screen name="chat/[id]" />
-              <Stack.Screen name="routines" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.8, 1], sheetGrabberVisible: true, sheetCornerRadius: 24 }} />
-              <Stack.Screen name="goals" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.8, 1], sheetGrabberVisible: true, sheetCornerRadius: 24 }} />
+              <Stack.Screen name="routines" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.85, 1], sheetGrabberVisible: true, sheetCornerRadius: 24 }} />
+              <Stack.Screen name="goals" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.85, 1], sheetGrabberVisible: true, sheetCornerRadius: 24 }} />
               <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
               <Stack.Screen name="account" />
               <Stack.Screen name="onboarding" />

@@ -97,7 +97,8 @@ export type FocoState = {
   addGoal: (goal: Omit<Goal, 'id'>) => string;
   updateGoal: (id: string, changes: Partial<Omit<Goal, 'id'>>) => void;
   linkTaskToGoal: (taskId: string, goalId: string | null) => void;
-  deleteGoal: (id: string) => void;
+  /** Deletes a goal; its tasks are kept (without goal) unless `deleteTasks` is true. */
+  deleteGoal: (id: string, deleteTasks?: boolean) => void;
   addScheduleBlock: (block: Omit<ScheduleBlock, 'id'>) => string;
   updateScheduleBlock: (id: string, changes: Partial<Omit<ScheduleBlock, 'id'>>) => void;
   deleteScheduleBlock: (id: string) => void;
@@ -493,10 +494,12 @@ export const useFocoStore = create<FocoState>()(
           }),
         })),
 
-      deleteGoal: (id) =>
+      deleteGoal: (id, deleteTasks = false) =>
         set((state) => ({
           goals: state.goals.filter((goal) => goal.id !== id),
-          tasks: state.tasks.map((task) => task.goalId === id ? { ...task, goalId: null } : task),
+          tasks: deleteTasks
+            ? state.tasks.filter((task) => task.goalId !== id)
+            : state.tasks.map((task) => task.goalId === id ? { ...task, goalId: null } : task),
         })),
 
       addScheduleBlock: (input) => {

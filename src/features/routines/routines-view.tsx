@@ -4,10 +4,13 @@ import { useImperativeHandle, useState, type Ref } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
+import { useStreakColor } from '@/components/streak-flame';
+import { SummaryCard } from '@/components/summary-card';
 import { Surface } from '@/components/surface';
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
 import { toDayKey } from '@/features/calendar/calendar-utils';
+import { summarizeRoutinesToday } from '@/features/tasks/task-board';
 import { useFocoStore } from '@/store/use-foco-store';
 import { useTheme } from '@/theme/use-theme';
 import { minTouchSize, radii, spacing } from '@/theme/tokens';
@@ -15,7 +18,15 @@ import type { CreateHandle } from '@/types/create-handle';
 import type { Routine } from '@/types/models';
 
 import { RoutineFormSheet } from './routine-form-sheet';
-import { formatWeekdays, isRoutineDoneOn, isRoutineDue, weekdayOptions } from './routine-utils';
+import {
+  formatWeekdays,
+  getRoutineStreak,
+  getRoutineWeekStats,
+  isRoutineDoneOn,
+  isRoutineDue,
+  summarizeRoutinesWeek,
+  weekdayOptions,
+} from './routine-utils';
 
 /** Rutinas segment of the Tareas tab. */
 export function RoutinesView({ ref }: { ref?: Ref<CreateHandle> }) {
@@ -31,7 +42,7 @@ export function RoutinesView({ ref }: { ref?: Ref<CreateHandle> }) {
     <>
       {sorted.length ? (
         <View style={styles.list}>
-          <Typography kind="secondary">Lo que repites cada semana. Márcalo cuando lo hagas y cuenta para tu día.</Typography>
+          <RoutinesSummary routines={sorted} />
           {sorted.map((routine) => <RoutineCard key={routine.id} routine={routine} onPress={() => setEditing(routine)} />)}
         </View>
       ) : (
@@ -46,8 +57,28 @@ export function RoutinesView({ ref }: { ref?: Ref<CreateHandle> }) {
   );
 }
 
+/** «Esta semana»: due routines done from Monday to today, plus today and the best streak. */
+function RoutinesSummary({ routines }: { routines: Routine[] }) {
+  const week = summarizeRoutinesWeek(routines);
+  const today = summarizeRoutinesToday(routines);
+  const bestStreak = Math.max(0, ...routines.map((routine) => getRoutineStreak(routine)));
+
+  return (
+    <SummaryCard
+      progress={week.due ? week.done / week.due : 0}
+      value={`${week.done} de ${week.due}`}
+      label="esta semana"
+      details={[
+        today.total ? `Hoy: ${today.done} de ${today.total} hechas` : 'Hoy no toca ninguna',
+        bestStreak ? `Mejor racha: ${bestStreak} seguidas` : 'Aún sin racha',
+      ]}
+    />
+  );
+}
+
 function RoutineCard({ routine, onPress }: { routine: Routine; onPress: () => void }) {
   const theme = useTheme();
+  const streakColor = useStreakColor();
   const toggleRoutineDone = useFocoStore((state) => state.toggleRoutineDone);
   const subject = useFocoStore((state) => state.subjects.find((item) => item.id === routine.subjectId));
   const today = new Date();
@@ -55,11 +86,13 @@ function RoutineCard({ routine, onPress }: { routine: Routine; onPress: () => vo
   const doneToday = isRoutineDoneOn(routine, today);
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const details = [formatWeekdays(routine.weekdays), routine.time, subject?.name].filter(Boolean).join(' · ');
+  const streak = getRoutineStreak(routine, today);
+  const week = getRoutineWeekStats(routine, today);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${routine.title}, ${details}`}
+      accessibilityLabel={`${routine.title}, ${details}. Racha de ${streak}. Esta semana ${week.done} de ${week.due}`}
       accessibilityHint="Abre la rutina para editarla"
       onPress={onPress}
       style={({ pressed }) => [styles.card, { backgroundColor: theme.surf, borderColor: theme.line, opacity: pressed ? 0.85 : 1 }]}>
@@ -109,6 +142,13 @@ function RoutineCard({ routine, onPress }: { routine: Routine; onPress: () => vo
           );
         })}
       </View>
+      <View style={styles.stats}>
+        <View style={styles.stat}>
+          <SymbolIcon ios="flame" other="local_fire_department" color={streak ? streakColor : theme.muted} size={14} />
+          <Typography kind="caption">{streak === 1 ? '1 seguida' : `${streak} seguidas`}</Typography>
+        </View>
+        <Typography kind="caption">{week.done} de {week.due} esta semana</Typography>
+      </View>
     </Pressable>
   );
 }
@@ -127,4 +167,6 @@ const styles = StyleSheet.create({
   week: { flexDirection: 'row', justifyContent: 'space-between' },
   weekDay: { alignItems: 'center', gap: spacing.xxs, flex: 1 },
   weekDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1.5 },
+  stats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: spacing.xxs },
 });

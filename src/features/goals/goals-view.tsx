@@ -8,14 +8,18 @@ import { ActionButton } from '@/components/action-button';
 import { AppScreen } from '@/components/app-screen';
 import { CategoryPicker } from '@/components/category-picker';
 import { ScreenHeader } from '@/components/screen-header';
+import { SummaryCard } from '@/components/summary-card';
 import { Surface } from '@/components/surface';
 import { Typography } from '@/components/typography';
+import { AddButton } from '@/features/tasks/add-menu';
+import { summarizeGoals } from '@/features/tasks/task-board';
+import { TaskFormSheet, type TaskDraft } from '@/features/tasks/task-form-sheet';
 import { useFocoStore } from '@/store/use-foco-store';
 import { useTheme } from '@/theme/use-theme';
 import { fonts } from '@/theme/fonts';
 import { categoryColors, minTouchSize, radii, spacing } from '@/theme/tokens';
 import type { CreateHandle } from '@/types/create-handle';
-import type { CategorySelection, Goal, GoalStatus, PersonalProject, ProjectStatus } from '@/types/models';
+import type { CategorySelection, Goal, GoalStatus, PersonalProject, ProjectStatus, Task } from '@/types/models';
 
 import { ProgressCard } from './progress-card';
 
@@ -44,6 +48,12 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
   const addGoal = useFocoStore((state) => state.addGoal);
   const updateGoal = useFocoStore((state) => state.updateGoal);
   const deleteGoal = useFocoStore((state) => state.deleteGoal);
+  const addTask = useFocoStore((state) => state.addTask);
+  const updateTask = useFocoStore((state) => state.updateTask);
+  const deleteTask = useFocoStore((state) => state.deleteTask);
+  const toggleTaskCompleted = useFocoStore((state) => state.toggleTaskCompleted);
+  // Task form opened from a goal or project card; `task: null` creates one linked to it.
+  const [taskForm, setTaskForm] = useState<{ task: Task | null; goalId: string | null; category?: CategorySelection } | null>(null);
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -118,14 +128,17 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
   };
 
   const removeGoal = (goal: Goal) => {
-    const linkedTaskCount = tasks.filter((task) => task.goalId === goal.id).length;
+    const taskCount = tasks.filter((task) => task.goalId === goal.id).length;
+    const deleteOptions = taskCount > 0
+      ? [
+          { text: 'Conservar tareas', onPress: () => deleteGoal(goal.id, false) },
+          { text: 'Borrar tareas', style: 'destructive' as const, onPress: () => deleteGoal(goal.id, true) },
+        ]
+      : [{ text: 'Eliminar', style: 'destructive' as const, onPress: () => deleteGoal(goal.id, false) }];
     Alert.alert(
       `Eliminar ${goal.title}`,
-      linkedTaskCount ? `Se conservarán sus ${linkedTaskCount} tareas, pero quedarán sin objetivo.` : 'El objetivo se quitará de tu lista.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => deleteGoal(goal.id) },
-      ],
+      taskCount > 0 ? `¿Qué quieres hacer con sus ${taskCount} tareas?` : 'El objetivo se quitará de tu lista.',
+      [{ text: 'Cancelar', style: 'cancel' }, ...deleteOptions],
     );
   };
 
@@ -148,11 +161,48 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
     create: (kind) => (kind === 'project' ? openEditor() : openGoalEditor()),
   }));
 
+  const saveTask = (draft: TaskDraft) => {
+    if (taskForm?.task) updateTask(taskForm.task.id, draft);
+    else addTask(draft);
+    setTaskForm(null);
+  };
+
+  const confirmDeleteTask = (task: Task) => {
+    Alert.alert('Eliminar tarea', `¿Quieres eliminar «${task.title}»?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => { deleteTask(task.id); setTaskForm(null); } },
+    ]);
+  };
+
+  const taskHandlers = {
+    onToggleTask: (task: Task) => toggleTaskCompleted(task.id),
+    onEditTask: (task: Task) => setTaskForm({ task, goalId: task.goalId }),
+  };
+  const summary = summarizeGoals(goals, projects, tasks);
+  const pendingInMetas = tasks.filter((task) => !task.completed && (
+    goals.some((goal) => goal.status === 'inProgress' && goal.id === task.goalId)
+    || (task.categoryType === 'project' && projects.some((project) => project.status === 'active' && project.id === task.categoryId))
+  )).length;
+
   return (
     <>
       <View style={styles.sections}>
+        {goals.length || projects.length ? (
+          <SummaryCard
+            progress={(summary.percent ?? 0) / 100}
+            value={summary.percent === null ? '—' : `${summary.percent}%`}
+            label="de avance medio"
+            details={[
+              `${summary.goals} ${summary.goals === 1 ? 'objetivo en curso' : 'objetivos en curso'} · ${summary.projects} ${summary.projects === 1 ? 'proyecto activo' : 'proyectos activos'}`,
+              pendingInMetas ? `${pendingInMetas} ${pendingInMetas === 1 ? 'tarea pendiente' : 'tareas pendientes'}` : 'Nada pendiente',
+            ]}
+          />
+        ) : null}
         <View style={styles.list}>
-          <Typography kind="heading">Objetivos</Typography>
+          <View style={styles.sectionHeader}>
+            <Typography kind="heading">Objetivos</Typography>
+            <AddButton compact accessibilityLabel="Añadir objetivo" onPress={() => openGoalEditor()} />
+          </View>
           {goals.length ? goals.map((goal) => {
             const goalTasks = tasks.filter((task) => task.goalId === goal.id);
             const target = goal.targetDate ? new Date(goal.targetDate) : null;
@@ -171,10 +221,13 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
                   target && isValid(target) ? `Meta ${format(target, 'd MMM', { locale: es })}` : null,
                 ]}
                 description={goal.description}
-                completed={goalTasks.filter((task) => task.completed).length}
-                total={goalTasks.length}
-                onPress={() => openGoalEditor(goal)}
-                tasksLink={{ pathname: '/tasks', params: { goalId: goal.id } }}
+                tasks={goalTasks}
+                onEdit={() => openGoalEditor(goal)}
+                onDelete={() => removeGoal(goal)}
+                onAddTask={() => setTaskForm({ task: null, goalId: goal.id, category: goal.categoryId && goal.categoryType
+                  ? { categoryId: goal.categoryId, categoryType: goal.categoryType }
+                  : undefined })}
+                {...taskHandlers}
               />
             );
           }) : (
@@ -186,7 +239,10 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
         </View>
 
         <View style={styles.list}>
-          <Typography kind="heading">Proyectos</Typography>
+          <View style={styles.sectionHeader}>
+            <Typography kind="heading">Proyectos</Typography>
+            <AddButton compact accessibilityLabel="Añadir proyecto" onPress={() => openEditor()} />
+          </View>
           {projects.length ? projects.map((project) => {
             const projectTasks = tasks.filter((task) => task.categoryType === 'project' && task.categoryId === project.id);
             const target = project.targetDate ? new Date(project.targetDate) : null;
@@ -200,10 +256,11 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
                   target && isValid(target) ? `Meta ${format(target, 'd MMM', { locale: es })}` : null,
                 ]}
                 description={project.description}
-                completed={projectTasks.filter((task) => task.completed).length}
-                total={projectTasks.length}
-                onPress={() => openEditor(project)}
-                tasksLink={{ pathname: '/tasks', params: { categoryId: project.id, categoryType: 'project' } }}
+                tasks={projectTasks}
+                onEdit={() => openEditor(project)}
+                onDelete={() => removeProject(project)}
+                onAddTask={() => setTaskForm({ task: null, goalId: null, category: { categoryId: project.id, categoryType: 'project' } })}
+                {...taskHandlers}
               />
             );
           }) : (
@@ -329,6 +386,17 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
           </Surface>
         </AppScreen>
       </Modal>
+      {taskForm ? (
+        <TaskFormSheet
+          visible
+          task={taskForm.task}
+          defaultGoalId={taskForm.goalId}
+          defaultCategory={taskForm.category}
+          onClose={() => setTaskForm(null)}
+          onSave={saveTask}
+          onDelete={taskForm.task ? () => confirmDeleteTask(taskForm.task as Task) : undefined}
+        />
+      ) : null}
     </>
   );
 }
@@ -336,6 +404,7 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
 const styles = StyleSheet.create({
   sections: { gap: spacing.xl },
   list: { gap: spacing.sm },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   delete: { minHeight: minTouchSize, alignItems: 'center', justifyContent: 'center' },
   empty: { gap: spacing.sm },
   form: { gap: spacing.md },
