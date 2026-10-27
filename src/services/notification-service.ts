@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { getReminderAnchor } from '@/features/tasks/task-date-utils';
 import type { AppSettings, Task } from '@/types/models';
 
 const TASK_REMINDER_TYPE = 'foco-task-reminder';
@@ -47,10 +48,8 @@ export async function syncTaskReminders(
   const reminders = tasks
     .filter((task) => !task.completed && task.dueDate)
     .map((task) => {
-      const dueAt = new Date(task.dueDate as string);
-      if (Number.isNaN(dueAt.getTime())) return null;
-      // Tasks store a date without a due time; use 18:00 local time as its reminder anchor.
-      dueAt.setHours(18, 0, 0, 0);
+      const dueAt = getReminderAnchor(task);
+      if (!dueAt) return null;
       const reminderAt = new Date(dueAt.getTime() - settings.reminderMinutesBefore * 60_000);
       return reminderAt.getTime() > now ? { task, reminderAt } : null;
     })
@@ -61,7 +60,7 @@ export async function syncTaskReminders(
   await Promise.all(reminders.map(({ task, reminderAt }) => Notifications.scheduleNotificationAsync({
     content: {
       title: 'Recordatorio de tarea',
-      body: `«${task.title}» vence hoy.`,
+      body: task.dueTime ? `«${task.title}» vence hoy a las ${task.dueTime}.` : `«${task.title}» vence hoy.`,
       data: { type: TASK_REMINDER_TYPE, taskId: task.id },
     },
     trigger: {

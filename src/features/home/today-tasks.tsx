@@ -53,7 +53,7 @@ export function TodayTaskRow({ task }: { task: Task }) {
     : task.categoryType === 'project'
       ? state.projects.find((item) => item.id === task.categoryId)
       : undefined);
-  const details = [task.kind !== 'task' ? taskKindLabel(task.kind) : null, category?.name ?? 'Sin asignatura', task.priority === 'high' ? 'Prioridad alta' : null]
+  const details = [task.kind !== 'task' ? taskKindLabel(task.kind) : null, category?.name ?? 'Sin asignatura', task.dueTime ? `a las ${task.dueTime}` : null, task.priority === 'high' ? 'Prioridad alta' : null]
     .filter(Boolean)
     .join(' · ');
 

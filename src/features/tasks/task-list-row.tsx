@@ -26,7 +26,8 @@ export function TaskListRow({ task, showCategory = false, onToggle, onEdit }: {
       : task.categoryType === 'project'
         ? state.projects.find((item) => item.id === task.categoryId)
         : undefined));
-  const due = task.dueDate ? formatDueLabel(task.dueDate) : null;
+  const dueDay = task.dueDate ? formatDueLabel(task.dueDate) : null;
+  const due = dueDay && task.dueTime ? { ...dueDay, label: `${dueDay.label} · ${task.dueTime}` } : dueDay;
   const overdue = !!due?.overdue && !task.completed;
   const highPriority = task.priority === 'high' && !task.completed;
   const details = [category?.name, task.kind !== 'task' ? taskKindLabel(task.kind) : null, due ? (overdue ? `atrasada, ${due.label}` : due.label) : null]

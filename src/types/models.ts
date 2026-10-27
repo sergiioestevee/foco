@@ -44,6 +44,8 @@ export type Task = CategoryFields & {
   title: string;
   notes: string;
   dueDate: string | null;
+  /** Optional due time (HH:mm). Without it the task is due «some time» that day. */
+  dueTime: string | null;
   priority: TaskPriority;
   completed: boolean;
   completedAt: string | null;

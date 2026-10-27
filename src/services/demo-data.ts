@@ -42,25 +42,25 @@ export function createDemoData(now = new Date()): DemoData {
   ];
   const tasks: Task[] = [
     {
-      id: 'demo-task-math', kind: 'task', title: 'Repasar ecuaciones', notes: 'Capítulos 4 y 5',
+      id: 'demo-task-math', kind: 'task', title: 'Repasar ecuaciones', notes: 'Capítulos 4 y 5', dueTime: null,
       dueDate: addDays(today, 0).toISOString(), priority: 'high', completed: false,
       completedAt: null, createdAt: now.toISOString(), goalId: 'demo-goal-math',
       categoryId: subjects[0].id, categoryType: 'subject',
     },
     {
-      id: 'demo-task-language', kind: 'delivery', title: 'Leer el capítulo pendiente', notes: '',
+      id: 'demo-task-language', kind: 'delivery', title: 'Leer el capítulo pendiente', notes: '', dueTime: null,
       dueDate: addDays(today, 0).toISOString(), priority: 'medium', completed: true,
       completedAt: now.toISOString(), createdAt: now.toISOString(), goalId: null,
       categoryId: subjects[1].id, categoryType: 'subject',
     },
     {
-      id: 'demo-task-code', kind: 'practice', title: 'Terminar el ejercicio de funciones', notes: 'Practicar con arrays',
+      id: 'demo-task-code', kind: 'practice', title: 'Terminar el ejercicio de funciones', notes: 'Practicar con arrays', dueTime: null,
       dueDate: addDays(today, -1).toISOString(), priority: 'medium', completed: false,
       completedAt: null, createdAt: now.toISOString(), goalId: 'demo-goal-code',
       categoryId: projects[0].id, categoryType: 'project',
     },
     {
-      id: 'demo-task-trip', kind: 'task', title: 'Buscar alojamiento', notes: '',
+      id: 'demo-task-trip', kind: 'task', title: 'Buscar alojamiento', notes: '', dueTime: null,
       dueDate: addDays(today, 2).toISOString(), priority: 'low', completed: false,
       completedAt: null, createdAt: now.toISOString(), goalId: null,
       categoryId: projects[1].id, categoryType: 'project',

@@ -30,7 +30,7 @@ const initialSettings: AppSettings = {
   reminderMinutesBefore: 30,
 };
 
-export type NewTask = Pick<Task, 'title' | 'notes' | 'dueDate' | 'priority' | 'goalId'> & Partial<Pick<Task, 'kind'>> & CategoryFields;
+export type NewTask = Pick<Task, 'title' | 'notes' | 'dueDate' | 'priority' | 'goalId'> & Partial<Pick<Task, 'kind' | 'dueTime'>> & CategoryFields;
 export type NewExam = Omit<Exam, 'id' | 'createdAt'>;
 export type NewStudyBlock = Omit<StudyBlock, 'id' | 'createdAt' | 'completed' | 'completedAt'>;
 export type NewRoutine = Omit<Routine, 'id' | 'createdAt' | 'completedDates'>;
@@ -266,6 +266,7 @@ export const useFocoStore = create<FocoState>()(
           ...input,
           ...normalizeCategory(input.categoryId, input.categoryType),
           kind: input.kind ?? 'task',
+          dueTime: input.dueTime ?? null,
           id: createId(),
           title: input.title.trim(),
           completed: false,
@@ -537,7 +538,7 @@ export const useFocoStore = create<FocoState>()(
     }),
     {
       name: 'foco-local-v1',
-      version: 7,
+      version: 8,
       migrate: (persisted, version) => {
         let state = (persisted ?? {}) as Partial<FocoState>;
         // v2: profile moved from { age, focusGoals } to { studies, focusTime }.
@@ -565,6 +566,8 @@ export const useFocoStore = create<FocoState>()(
         }
         // v7: per-chat summary.
         if (version < 7) state = { ...state, chats: (state.chats ?? []).map((chat) => ({ ...chat, summary: chat.summary ?? '' })) };
+        // v8: optional due time on tasks.
+        if (version < 8) state = { ...state, tasks: (state.tasks ?? []).map((task) => ({ ...task, dueTime: task.dueTime ?? null })) };
         return state;
       },
       storage: createJSONStorage(() => AsyncStorage),
