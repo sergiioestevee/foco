@@ -1,8 +1,7 @@
 import type { AndroidSymbol, SFSymbol } from 'expo-symbols';
-import { useEffect, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import { useRef, useState, type ComponentRef } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
@@ -26,97 +25,76 @@ type AddMenuProps<T extends string> = {
   onClose: () => void;
 };
 
-const OPEN_MS = 160;
-const CLOSE_MS = 120;
+const OPEN_MS = 150;
 
-/** Small menu that drops from a top-right «add» button, with one row per choice. */
+/**
+ * Small menu that drops from a top-right «add» button. It's a plain overlay, not a native Modal:
+ * iOS animates a Modal away even with animationType="none", which made the menu slide up before
+ * vanishing. Render it as the last child of the screen (outside any ScrollView) so it covers it.
+ */
 export function AddMenu<T extends string>({ visible, anchorY, options, onPick, onClose }: AddMenuProps<T>) {
   const theme = useTheme();
-  const reduceMotion = useReducedMotion();
-  // Stays mounted while the closing animation plays; the Modal itself doesn't animate.
-  const [mounted, setMounted] = useState(visible);
-  const progress = useSharedValue(0);
-  // The choice runs once the menu is gone: on iOS, presenting the form while this modal is still
-  // on screen makes both stutter.
-  const pendingRef = useRef<T | null>(null);
-
-  if (visible && !mounted) setMounted(true);
-
-  const runPending = () => {
-    const value = pendingRef.current;
-    pendingRef.current = null;
-    if (value !== null) onPick(value);
-  };
-
-  const unmount = () => {
-    setMounted(false);
-    // iOS reports the modal gone through onDismiss; elsewhere it's gone right away.
-    if (Platform.OS !== 'ios') runPending();
-  };
-
-  useEffect(() => {
-    if (visible) {
-      progress.value = reduceMotion ? 1 : withTiming(1, { duration: OPEN_MS, easing: Easing.out(Easing.cubic) });
-    } else {
-      // With «Reduce motion» the close is instant, but still reported through the animation callback.
-      progress.value = withTiming(0, { duration: reduceMotion ? 0 : CLOSE_MS, easing: Easing.in(Easing.quad) }, (finished) => {
-        if (finished) scheduleOnRN(unmount);
-      });
-    }
-    // unmount only reads refs and setters; re-running on its identity would restart the animation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, reduceMotion, progress]);
-
-  // Shrinks towards the button (top right) instead of sliding.
-  const menuStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ scale: 0.92 + progress.value * 0.08 }],
-  }));
-
-  const choose = (value: T) => {
-    pendingRef.current = value;
-    onClose();
-  };
+  const layerRef = useRef<ComponentRef<typeof View>>(null);
+  // Window Y of this layer's top, to turn the tap's window Y into a position inside the layer.
+  const [layerTop, setLayerTop] = useState(0);
 
   return (
-    <Modal animationType="none" onDismiss={runPending} onRequestClose={onClose} transparent visible={mounted}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Cerrar menú" onPress={onClose} style={StyleSheet.absoluteFill} />
-      <Animated.View
-        style={[
-          styles.menu,
-          { top: anchorY + spacing.lg, backgroundColor: theme.surf, borderColor: theme.line, shadowColor: theme.shadow },
-          menuStyle,
-        ]}>
-        {options.map((option, index) => (
-          <Pressable
-            key={option.value}
-            accessibilityRole="menuitem"
-            onPress={() => choose(option.value)}
-            style={({ pressed }) => [
-              styles.option,
-              index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line },
-              pressed && { backgroundColor: theme.track },
+    <View
+      ref={layerRef}
+      pointerEvents={visible ? 'auto' : 'none'}
+      onLayout={() => layerRef.current?.measureInWindow((_x, y) => setLayerTop(y))}
+      style={StyleSheet.absoluteFill}>
+      {visible ? (
+        <>
+          <Pressable accessibilityRole="button" accessibilityLabel="Cerrar menú" onPress={onClose} style={StyleSheet.absoluteFill} />
+          <Animated.View
+            entering={FadeIn.duration(OPEN_MS)}
+            accessibilityViewIsModal
+            style={[
+              styles.menu,
+              { top: anchorY - layerTop + spacing.lg, backgroundColor: theme.surf, borderColor: theme.line, shadowColor: theme.shadow },
             ]}>
-            <SymbolIcon ios={option.ios} other={option.md} color={theme.accent} size={18} />
-            <Typography style={styles.label}>{option.label}</Typography>
-          </Pressable>
-        ))}
-      </Animated.View>
-    </Modal>
+            {options.map((option, index) => (
+              <Pressable
+                key={option.value}
+                accessibilityRole="menuitem"
+                onPress={() => {
+                  onClose();
+                  onPick(option.value);
+                }}
+                style={({ pressed }) => [
+                  styles.option,
+                  index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line },
+                  pressed && { backgroundColor: theme.track },
+                ]}>
+                <SymbolIcon ios={option.ios} other={option.md} color={theme.accent} size={18} />
+                <Typography style={styles.label}>{option.label}</Typography>
+              </Pressable>
+            ))}
+          </Animated.View>
+        </>
+      ) : null}
+    </View>
   );
 }
 
 /** Top-right icon button that opens an AddMenu (or acts directly). */
-export function AddButton({ accessibilityLabel, onPress }: { accessibilityLabel: string; onPress: (anchorY: number) => void }) {
+export function AddButton({ accessibilityLabel, onPress, compact = false }: {
+  accessibilityLabel: string;
+  onPress: (anchorY: number) => void;
+  /** Smaller, for section headings; the touch area stays 44 pt. */
+  compact?: boolean;
+}) {
   const theme = useTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      hitSlop={compact ? 4 : undefined}
       onPress={(event) => onPress(event.nativeEvent.pageY)}
-      style={({ pressed }) => [styles.button, { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 }]}>
-      <SymbolIcon ios="square.and.pencil" other="edit_square" color={theme.accentInk} size={20} />
+      style={({ pressed }) => [styles.button, compact && styles.compact, { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 }]}>
+      <SymbolIcon ios={compact ? 'plus' : 'square.and.pencil'} other={compact ? 'add' : 'edit_square'} color={theme.accentInk} size={compact ? 18 : 20} />
     </Pressable>
   );
 }
@@ -124,7 +102,6 @@ export function AddButton({ accessibilityLabel, onPress }: { accessibilityLabel:
 const styles = StyleSheet.create({
   menu: {
     position: 'absolute',
-    transformOrigin: 'top right',
     right: spacing.lg,
     minWidth: 200,
     borderRadius: radii.chip,
@@ -137,6 +114,7 @@ const styles = StyleSheet.create({
   },
   option: { minHeight: minTouchSize + 4, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md },
   label: { fontWeight: '600' },
+  compact: { width: 36, height: 36, borderRadius: 18 },
   button: {
     width: minTouchSize + 4,
     height: minTouchSize + 4,
