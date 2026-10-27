@@ -1,4 +1,4 @@
-import { format, isSameDay, parse } from 'date-fns';
+import { addDays, endOfMonth, endOfWeek, format, isSameDay, parse, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 
 import type { Exam, Routine, ScheduleBlock, StudyBlock, Task } from '@/types/models';
 
@@ -73,6 +73,32 @@ export function dayHasEvents(day: Date, source: AgendaSource & { tasks: Task[] }
   return source.studyBlocks.some((block) => block.date === dayKey)
     || source.exams.some((exam) => isSameDay(new Date(exam.date), day))
     || getTasksForDay(source.tasks, day).length > 0;
+}
+
+/** The month around `day` as whole Monday-first weeks, padded with the neighbouring months' days. */
+export function getMonthGrid(day: Date): Date[][] {
+  const first = startOfWeek(startOfMonth(day), { weekStartsOn: 1 });
+  const last = endOfWeek(endOfMonth(day), { weekStartsOn: 1 });
+  const weeks: Date[][] = [];
+  for (let start = first; start <= last; start = addDays(start, 7)) {
+    weeks.push(Array.from({ length: 7 }, (_, index) => addDays(start, index)));
+  }
+  return weeks;
+}
+
+export type UpcomingDay = { day: Date; agenda: AgendaItem[]; tasks: Task[]; untimedRoutines: Routine[] };
+
+/** The next `count` days that have anything on them, for the Lista view. */
+export function getUpcomingDays(from: Date, count: number, source: AgendaSource & { tasks: Task[] }): UpcomingDay[] {
+  const routines = source.routines ?? [];
+  return Array.from({ length: count }, (_, index) => addDays(startOfDay(from), index))
+    .map((day) => ({
+      day,
+      agenda: getAgenda(day, source),
+      tasks: getTasksForDay(source.tasks, day),
+      untimedRoutines: routines.filter((routine) => !routine.time && routine.weekdays.includes(day.getDay())),
+    }))
+    .filter((entry) => entry.agenda.length || entry.tasks.length || entry.untimedRoutines.length);
 }
 
 const DAY_START = 9 * 60;

@@ -1,6 +1,8 @@
 import { addDays, format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { Directions, GestureDetector, useCompetingGestures, useFlingGesture } from 'react-native-gesture-handler';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
@@ -25,41 +27,47 @@ export function WeekStrip({ weekStart, selectedKey, today, hasEvents, onSelect, 
   const theme = useTheme();
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const monthLabel = format(days[3], 'MMMM yyyy', { locale: es });
+  // Swiping the strip changes week, like flicking pages: left shows the next one, right the previous.
+  const next = useFlingGesture({ direction: Directions.LEFT, runOnJS: true, onActivate: () => onChangeWeek(1) });
+  const previous = useFlingGesture({ direction: Directions.RIGHT, runOnJS: true, onActivate: () => onChangeWeek(-1) });
+  const swipe = useCompetingGestures(next, previous);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Typography kind="heading" style={styles.month}>{monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}</Typography>
-        <View style={styles.arrows}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Semana anterior" onPress={() => onChangeWeek(-1)} style={styles.arrow}>
-            <SymbolIcon ios="chevron.left" other="chevron_left" color={theme.text} size={16} />
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" onPress={() => onChangeWeek(1)} style={styles.arrow}>
-            <SymbolIcon ios="chevron.right" other="chevron_right" color={theme.text} size={16} />
-          </Pressable>
-        </View>
-      </View>
-      <View style={styles.days}>
-        {days.map((day) => {
-          const selected = toDayKey(day) === selectedKey;
-          const isToday = isSameDay(day, today);
-          const color = selected ? theme.accentInk : isToday ? theme.accent : theme.text;
-          return (
-            <Pressable
-              key={toDayKey(day)}
-              accessibilityRole="button"
-              accessibilityLabel={`${format(day, "EEEE d 'de' MMMM", { locale: es })}${isToday ? ', hoy' : ''}`}
-              accessibilityState={{ selected }}
-              onPress={() => onSelect(day)}
-              style={[styles.day, { backgroundColor: selected ? theme.accent : theme.surf, borderColor: selected ? theme.accent : theme.line }]}>
-              <Typography kind="caption" style={{ color: selected ? theme.accentInk : theme.muted }}>{dayLetters[day.getDay()]}</Typography>
-              <Typography style={[styles.number, { color }]}>{day.getDate()}</Typography>
-              <View style={[styles.dot, { backgroundColor: hasEvents(day) ? (selected ? theme.accentInk : theme.accent) : 'transparent' }]} />
+    <GestureDetector gesture={swipe}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Typography kind="heading" style={styles.month}>{monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}</Typography>
+          <View style={styles.arrows}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Semana anterior" onPress={() => onChangeWeek(-1)} style={styles.arrow}>
+              <SymbolIcon ios="chevron.left" other="chevron_left" color={theme.text} size={16} />
             </Pressable>
-          );
-        })}
+            <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" onPress={() => onChangeWeek(1)} style={styles.arrow}>
+              <SymbolIcon ios="chevron.right" other="chevron_right" color={theme.text} size={16} />
+            </Pressable>
+          </View>
+        </View>
+        <Animated.View key={toDayKey(weekStart)} entering={FadeIn.duration(180)} style={styles.days}>
+          {days.map((day) => {
+            const selected = toDayKey(day) === selectedKey;
+            const isToday = isSameDay(day, today);
+            const color = selected ? theme.accentInk : isToday ? theme.accent : theme.text;
+            return (
+              <Pressable
+                key={toDayKey(day)}
+                accessibilityRole="button"
+                accessibilityLabel={`${format(day, "EEEE d 'de' MMMM", { locale: es })}${isToday ? ', hoy' : ''}`}
+                accessibilityState={{ selected }}
+                onPress={() => onSelect(day)}
+                style={[styles.day, { backgroundColor: selected ? theme.accent : theme.surf, borderColor: selected ? theme.accent : theme.line }]}>
+                <Typography kind="caption" style={{ color: selected ? theme.accentInk : theme.muted }}>{dayLetters[day.getDay()]}</Typography>
+                <Typography style={[styles.number, { color }]}>{day.getDate()}</Typography>
+                <View style={[styles.dot, { backgroundColor: hasEvents(day) ? (selected ? theme.accentInk : theme.accent) : 'transparent' }]} />
+              </Pressable>
+            );
+          })}
+        </Animated.View>
       </View>
-    </View>
+    </GestureDetector>
   );
 }
 
