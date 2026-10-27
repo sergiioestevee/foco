@@ -9,7 +9,6 @@ import { AppScreen } from '@/components/app-screen';
 import { ScreenHeader } from '@/components/screen-header';
 import { SegmentedControl } from '@/components/segmented-control';
 import { Surface } from '@/components/surface';
-import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
 import { AgendaRow } from '@/features/calendar/agenda-row';
 import { dayHasEvents, fromDayKey, getAgenda, getTasksForDay, getUpcomingDays, toDayKey, type AgendaItem } from '@/features/calendar/calendar-utils';
@@ -21,8 +20,8 @@ import { WeekStrip } from '@/features/calendar/week-strip';
 import { ExamFormSheet } from '@/features/exams/exam-form-sheet';
 import { TodayRoutineRow, TodayTaskRow } from '@/features/home/today-tasks';
 import { getRoutinesForDay } from '@/features/routines/routine-utils';
+import { AddButton, AddMenu, type AddMenuOption } from '@/features/tasks/add-menu';
 import { useFocoStore } from '@/store/use-foco-store';
-import { useTheme } from '@/theme/use-theme';
 import { spacing } from '@/theme/tokens';
 import type { Exam, ScheduleBlock, StudyBlock } from '@/types/models';
 
@@ -40,8 +39,12 @@ const viewOptions = [
   { value: 'list', label: 'Lista' },
 ] as const satisfies readonly { value: CalendarView; label: string }[];
 
+const addOptions: AddMenuOption<'class' | 'study'>[] = [
+  { value: 'class', label: 'Clase semanal', ios: 'graduationcap', md: 'school' },
+  { value: 'study', label: 'Bloque de estudio', ios: 'book', md: 'menu_book' },
+];
+
 export default function CalendarScreen() {
-  const theme = useTheme();
   const scheduleBlocks = useFocoStore((state) => state.scheduleBlocks);
   const studyBlocks = useFocoStore((state) => state.studyBlocks);
   const exams = useFocoStore((state) => state.exams);
@@ -51,6 +54,7 @@ export default function CalendarScreen() {
   const [selectedKey, setSelectedKey] = useState(() => toDayKey(today));
   const [editor, setEditor] = useState<Editor | undefined>(undefined);
   const [view, setView] = useState<CalendarView>('week');
+  const [addMenuAnchor, setAddMenuAnchor] = useState<number | null>(null);
 
   const selectedDay = fromDayKey(selectedKey);
   const weekStart = startOfWeek(selectedDay, { weekStartsOn: 1 });
@@ -58,7 +62,7 @@ export default function CalendarScreen() {
   const agenda = getAgenda(selectedDay, source);
   const dayTasks = getTasksForDay(tasks, selectedDay);
   const untimedRoutines = getRoutinesForDay(routines, selectedDay).filter((routine) => !routine.time);
-  // Short month so it stays on one line beside «Estudiar»: «Miércoles 30 sept».
+  // Short month so it stays on one line beside the add button: «Miércoles 30 sept».
   const dayLabel = format(selectedDay, 'EEEE d MMM', { locale: es }).replace('.', '');
   const awayFromToday = view === 'month'
     ? !isSameMonth(selectedDay, today)
@@ -77,12 +81,7 @@ export default function CalendarScreen() {
         <ScreenHeader
           title="Calendario"
           subtitle={view === 'list' ? 'Lo que viene' : isSameDay(selectedDay, today) ? 'Hoy' : dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1)}>
-          <ActionButton
-            label="Estudiar"
-            icon={<SymbolIcon ios="plus" other="add" color={theme.accentInk} size={16} />}
-            accessibilityLabel="Añadir bloque de estudio"
-            onPress={() => setEditor({ type: 'study', block: null })}
-          />
+          <AddButton accessibilityLabel="Añadir clase o bloque de estudio" onPress={setAddMenuAnchor} />
         </ScreenHeader>
 
         <SegmentedControl options={viewOptions} value={view} onChange={setView} style={styles.views} />
@@ -134,13 +133,6 @@ export default function CalendarScreen() {
                   {untimedRoutines.map((routine) => <TodayRoutineRow key={routine.id} routine={routine} day={selectedDay} />)}
                 </View>
               ) : null}
-
-              <ActionButton
-                label="Añadir clase semanal"
-                variant="plain"
-                icon={<SymbolIcon ios="repeat" other="repeat" color={theme.accent} size={16} />}
-                onPress={() => setEditor({ type: 'class', block: null })}
-              />
             </View>
           </>
         )}
@@ -153,6 +145,13 @@ export default function CalendarScreen() {
         <ClassBlockEditor block={editor.block} initialWeekday={selectedDay.getDay()} onClose={() => setEditor(undefined)} />
       ) : null}
       {editor?.type === 'exam' ? <ExamFormSheet exam={editor.exam} onClose={() => setEditor(undefined)} /> : null}
+      <AddMenu
+        visible={addMenuAnchor !== null}
+        anchorY={addMenuAnchor ?? 0}
+        options={addOptions}
+        onPick={(choice) => setEditor(choice === 'class' ? { type: 'class', block: null } : { type: 'study', block: null })}
+        onClose={() => setAddMenuAnchor(null)}
+      />
     </>
   );
 }

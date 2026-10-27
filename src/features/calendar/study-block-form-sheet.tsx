@@ -1,12 +1,11 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { useState, type ReactNode } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { DatePickerButton } from '@/components/date-picker-button';
 import { SymbolIcon } from '@/components/symbol-icon';
+import { TimePickerButton } from '@/components/time-picker-button';
 import { Typography } from '@/components/typography';
 import { useFocoStore } from '@/store/use-foco-store';
 import { fonts } from '@/theme/fonts';
@@ -23,14 +22,6 @@ type StudyBlockFormSheetProps = {
   onClose: () => void;
 };
 
-type PickerField = 'date' | 'start' | 'end';
-
-function timeAsDate(time: string) {
-  const value = new Date();
-  value.setHours(Math.floor(timeToMinutes(time) / 60), timeToMinutes(time) % 60, 0, 0);
-  return value;
-}
-
 export function StudyBlockFormSheet({ block, initialDate, onClose }: StudyBlockFormSheetProps) {
   const theme = useTheme();
   const subjects = useFocoStore((state) => state.subjects);
@@ -44,7 +35,6 @@ export function StudyBlockFormSheet({ block, initialDate, onClose }: StudyBlockF
   const [date, setDate] = useState(block?.date ?? initialDate);
   const [startTime, setStartTime] = useState(block?.startTime ?? '18:00');
   const [endTime, setEndTime] = useState(block?.endTime ?? '18:45');
-  const [picker, setPicker] = useState<PickerField | null>(null);
   const subjectName = orderedSubjects.find((subject) => subject.id === subjectId)?.name;
   const validTimes = timeToMinutes(endTime) > timeToMinutes(startTime);
 
@@ -73,17 +63,11 @@ export function StudyBlockFormSheet({ block, initialDate, onClose }: StudyBlockF
     ]);
   };
 
-  const onPick = (value: Date) => {
-    if (picker === 'date') setDate(toDayKey(value));
-    if (picker === 'start') {
-      // Keep the duration when moving the start.
-      const duration = Math.max(15, timeToMinutes(endTime) - timeToMinutes(startTime));
-      const start = value.getHours() * 60 + value.getMinutes();
-      setStartTime(minutesToTime(start));
-      setEndTime(minutesToTime(Math.min(start + duration, 23 * 60 + 55)));
-    }
-    if (picker === 'end') setEndTime(format(value, 'HH:mm'));
-    if (Platform.OS === 'android') setPicker(null);
+  // Moving the start keeps the duration.
+  const changeStart = (time: string) => {
+    const duration = Math.max(15, timeToMinutes(endTime) - timeToMinutes(startTime));
+    setStartTime(time);
+    setEndTime(minutesToTime(Math.min(timeToMinutes(time) + duration, 23 * 60 + 55)));
   };
 
   return (
@@ -137,31 +121,15 @@ export function StudyBlockFormSheet({ block, initialDate, onClose }: StudyBlockF
               </Field>
 
               <Field label="Cuándo">
-                <ActionButton
-                  label={format(fromDayKey(date), "EEEE d 'de' MMMM", { locale: es })}
-                  variant="secondary"
-                  icon={<SymbolIcon ios="calendar" other="calendar_today" color={theme.accent} size={18} />}
-                  onPress={() => setPicker(picker === 'date' ? null : 'date')}
-                />
+                <DatePickerButton value={fromDayKey(date)} onChange={(day) => setDate(toDayKey(day))} title="Día del bloque" />
                 <View style={styles.row}>
-                  <ActionButton label={`Empieza · ${startTime}`} variant="secondary" onPress={() => setPicker(picker === 'start' ? null : 'start')} style={styles.grow} />
-                  <ActionButton label={`Termina · ${endTime}`} variant="secondary" onPress={() => setPicker(picker === 'end' ? null : 'end')} style={styles.grow} />
+                  <TimePickerButton value={startTime} onChange={changeStart} title="Empieza" style={styles.grow} />
+                  <Typography kind="secondary">a</Typography>
+                  <TimePickerButton value={endTime} onChange={setEndTime} title="Termina" style={styles.grow} />
                 </View>
                 <Typography kind="secondary" style={{ color: validTimes ? theme.muted : theme.danger }}>
                   {validTimes ? `Duración: ${formatDuration(startTime, endTime)}` : 'La hora de fin debe ser posterior a la de inicio.'}
                 </Typography>
-                {picker ? (
-                  <DateTimePicker
-                    value={picker === 'date' ? fromDayKey(date) : timeAsDate(picker === 'start' ? startTime : endTime)}
-                    mode={picker === 'date' ? 'date' : 'time'}
-                    display={Platform.OS === 'ios' ? (picker === 'date' ? 'inline' : 'spinner') : 'default'}
-                    minuteInterval={5}
-                    onValueChange={(_event, value) => onPick(value)}
-                    onDismiss={() => setPicker(null)}
-                    themeVariant={theme.colorScheme}
-                    accentColor={theme.accent}
-                  />
-                ) : null}
               </Field>
 
               <ActionButton label={block ? 'Guardar cambios' : 'Añadir bloque'} onPress={save} />
@@ -204,7 +172,7 @@ const styles = StyleSheet.create({
   chip: { minHeight: minTouchSize, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radii.chip + 4, borderWidth: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   input: { minHeight: 52, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 17, fontFamily: fonts.medium },
-  row: { flexDirection: 'row', gap: spacing.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   grow: { flex: 1 },
   delete: { minHeight: minTouchSize, alignItems: 'center', justifyContent: 'center' },
 });

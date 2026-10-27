@@ -1,33 +1,22 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
-import { useState } from 'react';
-import { Alert, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
-import { AppScreen } from '@/components/app-screen';
-import { CategoryPicker } from '@/components/category-picker';
-import { ScreenHeader } from '@/components/screen-header';
-import { Surface } from '@/components/surface';
+import { SymbolIcon } from '@/components/symbol-icon';
+import { TimePickerButton } from '@/components/time-picker-button';
 import { Typography } from '@/components/typography';
 import { useFocoStore } from '@/store/use-foco-store';
 import { fonts } from '@/theme/fonts';
 import { useTheme } from '@/theme/use-theme';
 import { categoryColors, minTouchSize, radii, spacing } from '@/theme/tokens';
-import type { CategorySelection, ScheduleBlock } from '@/types/models';
+import { NO_CATEGORY, type ScheduleBlock } from '@/types/models';
 
-import { timeToMinutes } from './calendar-utils';
-
-type TimeField = 'start' | 'end';
+import { formatDuration, minutesToTime, timeToMinutes } from './calendar-utils';
 
 const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 // Monday first, values follow Date.getDay().
 const weekdayOptions = [1, 2, 3, 4, 5, 6, 0].map((value) => ({ value, label: 'DLMXJVS'[value] }));
-
-function timeToDate(time: string) {
-  const value = new Date();
-  value.setHours(Math.floor(timeToMinutes(time) / 60), timeToMinutes(time) % 60, 0, 0);
-  return value;
-}
 
 type ClassBlockEditorProps = {
   block: ScheduleBlock | null;
@@ -35,32 +24,58 @@ type ClassBlockEditorProps = {
   onClose: () => void;
 };
 
-/** Weekly recurring class or schedule slot. */
+/**
+ * Weekly class. A new one can go on several days at once (one block per day, so each can be moved
+ * later on its own); an existing one edits just its day.
+ */
 export function ClassBlockEditor({ block, initialWeekday, onClose }: ClassBlockEditorProps) {
   const theme = useTheme();
   const subjects = useFocoStore((state) => state.subjects);
-  const projects = useFocoStore((state) => state.projects);
   const addScheduleBlock = useFocoStore((state) => state.addScheduleBlock);
   const updateScheduleBlock = useFocoStore((state) => state.updateScheduleBlock);
   const deleteScheduleBlock = useFocoStore((state) => state.deleteScheduleBlock);
-  const [weekday, setWeekday] = useState(block?.weekday ?? initialWeekday);
+  const orderedSubjects = [...subjects].sort((left, right) => left.order - right.order);
+
+  const [subjectId, setSubjectId] = useState<string | null>(
+    block ? (block.categoryType === 'subject' ? block.categoryId : null) : orderedSubjects[0]?.id ?? null,
+  );
+  const [weekdays, setWeekdays] = useState<number[]>([block?.weekday ?? initialWeekday]);
   const [startTime, setStartTime] = useState(block?.startTime ?? '09:00');
-  const [endTime, setEndTime] = useState(block?.endTime ?? '10:00');
+  const [endTime, setEndTime] = useState(block?.endTime ?? '11:00');
   const [place, setPlace] = useState(block?.place ?? '');
-  const [color, setColor] = useState<string>(block?.color ?? categoryColors[0]);
-  const [category, setCategory] = useState<CategorySelection>(block?.categoryId && block.categoryType
-    ? { categoryId: block.categoryId, categoryType: block.categoryType }
-    : { categoryId: null, categoryType: null });
-  const [timeField, setTimeField] = useState<TimeField | null>(null);
+  const validTimes = timeToMinutes(endTime) > timeToMinutes(startTime);
+  const canSave = validTimes && weekdays.length > 0;
+
+  const toggleDay = (day: number) => {
+    if (block) setWeekdays([day]);
+    else setWeekdays((current) => (current.includes(day) ? current.filter((item) => item !== day) : [...current, day]));
+  };
+
+  // Moving the start keeps the length of the class.
+  const changeStart = (time: string) => {
+    const duration = Math.max(15, timeToMinutes(endTime) - timeToMinutes(startTime));
+    setStartTime(time);
+    setEndTime(minutesToTime(Math.min(timeToMinutes(time) + duration, 23 * 60 + 55)));
+  };
 
   const save = () => {
-    if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
-      Alert.alert('Revisa las horas', 'La hora de fin debe ser posterior a la hora de inicio.');
-      return;
-    }
-    const changes = { weekday, startTime, endTime, place: place.trim(), color, ...category };
-    if (block) updateScheduleBlock(block.id, changes);
-    else addScheduleBlock(changes);
+    if (!canSave) return;
+    const subject = orderedSubjects.find((item) => item.id === subjectId);
+    const fields = {
+      startTime,
+      endTime,
+      place: place.trim(),
+      // Classes take their subject's colour, so the calendar matches the rest of the app.
+      color: subject?.color ?? block?.color ?? categoryColors[0],
+      // Older classes may point at a project (the previous editor allowed it); keep that link.
+      ...(subject
+        ? { categoryId: subject.id, categoryType: 'subject' as const }
+        : block?.categoryType === 'project' && block.categoryId
+          ? { categoryId: block.categoryId, categoryType: 'project' as const }
+          : NO_CATEGORY),
+    };
+    if (block) updateScheduleBlock(block.id, { ...fields, weekday: weekdays[0] });
+    else weekdays.forEach((weekday) => addScheduleBlock({ ...fields, weekday }));
     onClose();
   };
 
@@ -76,112 +91,145 @@ export function ClassBlockEditor({ block, initialWeekday, onClose }: ClassBlockE
     );
   };
 
-  const chooseTime = (_event: unknown, value?: Date) => {
-    if (value && timeField === 'start') setStartTime(format(value, 'HH:mm'));
-    if (value && timeField === 'end') setEndTime(format(value, 'HH:mm'));
-    if (Platform.OS === 'android') setTimeField(null);
-  };
-
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible>
-      <AppScreen>
-        <ScreenHeader title={block ? 'Editar clase' : 'Nueva clase semanal'} subtitle="Se repite cada semana.">
-          <ActionButton label="Cerrar" variant="plain" onPress={onClose} />
-        </ScreenHeader>
-        <Surface style={styles.form}>
-          <Typography kind="caption">Día de la semana</Typography>
-          <View style={styles.weekdayChoices} accessibilityRole="radiogroup">
-            {weekdayOptions.map(({ value, label }) => {
-              const selected = weekday === value;
-              return (
-                <Pressable
-                  key={value}
-                  accessibilityRole="radio"
-                  accessibilityLabel={dayNames[value]}
-                  accessibilityState={{ selected }}
-                  onPress={() => setWeekday(value)}
-                  style={[styles.weekdayChoice, { backgroundColor: selected ? theme.accent : theme.track }]}>
-                  <Typography style={{ color: selected ? theme.accentInk : theme.text, fontWeight: '600' }}>{label}</Typography>
+    <Modal animationType="slide" onRequestClose={onClose} transparent visible>
+      <View style={[styles.overlay, { backgroundColor: theme.scrim }]}>
+        <Pressable accessibilityLabel="Cerrar formulario" onPress={onClose} style={StyleSheet.absoluteFill} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
+          <SafeAreaView edges={['bottom']} style={[styles.sheet, { backgroundColor: theme.bg }]}>
+            <View style={[styles.handle, { backgroundColor: theme.muted }]} />
+            <View style={styles.header}>
+              <View style={styles.headerCopy}>
+                <Typography kind="heading">{block ? 'Editar clase' : 'Nueva clase'}</Typography>
+                <Typography kind="caption">Se repite cada semana.</Typography>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onClose} style={[styles.close, { backgroundColor: theme.track }]}>
+                <SymbolIcon ios="xmark" other="close" color={theme.muted} size={20} />
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Field label="Asignatura">
+                {orderedSubjects.length ? (
+                  <View style={styles.chips} accessibilityRole="radiogroup">
+                    {orderedSubjects.map((subject) => {
+                      const selected = subject.id === subjectId;
+                      return (
+                        <Pressable
+                          key={subject.id}
+                          accessibilityRole="radio"
+                          accessibilityLabel={subject.name}
+                          accessibilityState={{ selected }}
+                          onPress={() => setSubjectId(selected ? null : subject.id)}
+                          style={[styles.chip, selected ? { backgroundColor: `${subject.color}2E`, borderColor: subject.color } : { borderColor: theme.line }]}>
+                          <View style={[styles.dot, { backgroundColor: subject.color }]} />
+                          <Typography style={{ fontWeight: selected ? '700' : '600', color: selected ? theme.text : theme.muted }}>{subject.name}</Typography>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <Typography kind="secondary">Añade asignaturas desde Perfil para ponerles nombre y color a tus clases.</Typography>
+                )}
+              </Field>
+
+              <Field label={block ? 'Qué día' : 'Qué días'}>
+                <View style={styles.days}>
+                  {weekdayOptions.map(({ value, label }) => {
+                    const selected = weekdays.includes(value);
+                    return (
+                      <Pressable
+                        key={value}
+                        accessibilityRole={block ? 'radio' : 'checkbox'}
+                        accessibilityLabel={dayNames[value]}
+                        accessibilityState={block ? { selected } : { checked: selected }}
+                        onPress={() => toggleDay(value)}
+                        style={[styles.day, { backgroundColor: selected ? theme.accent : theme.surf, borderColor: selected ? theme.accent : theme.line }]}>
+                        <Typography style={{ color: selected ? theme.accentInk : theme.text, fontWeight: '700' }}>{label}</Typography>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {!weekdays.length ? <Typography kind="secondary" style={{ color: theme.danger }}>Elige al menos un día.</Typography> : null}
+              </Field>
+
+              <Field label="Horario">
+                <View style={styles.row}>
+                  <TimePickerButton value={startTime} onChange={changeStart} title="Empieza" style={styles.grow} />
+                  <Typography kind="secondary">a</Typography>
+                  <TimePickerButton value={endTime} onChange={setEndTime} title="Termina" style={styles.grow} />
+                </View>
+                <Typography kind="secondary" style={{ color: validTimes ? theme.muted : theme.danger }}>
+                  {validTimes ? `Duración: ${formatDuration(startTime, endTime)}` : 'La hora de fin debe ser posterior a la de inicio.'}
+                </Typography>
+              </Field>
+
+              <Field label="Aula (opcional)">
+                <TextInput
+                  accessibilityLabel="Aula de la clase"
+                  maxLength={80}
+                  onChangeText={setPlace}
+                  placeholder="Ej.: Aula 2.14"
+                  placeholderTextColor={theme.muted}
+                  returnKeyType="done"
+                  style={[styles.input, { backgroundColor: theme.surf, borderColor: theme.line, color: theme.text }]}
+                  value={place}
+                />
+              </Field>
+
+              {block ? (
+                <Pressable accessibilityRole="button" onPress={confirmDelete} style={styles.delete}>
+                  <Typography style={{ color: theme.danger, fontWeight: '700' }}>Eliminar clase</Typography>
                 </Pressable>
-              );
-            })}
-          </View>
+              ) : null}
+            </ScrollView>
 
-          <Typography kind="caption">Horario</Typography>
-          <View style={styles.timeChoices}>
-            <ActionButton label={`Empieza · ${startTime}`} variant="secondary" onPress={() => setTimeField('start')} style={styles.grow} />
-            <ActionButton label={`Termina · ${endTime}`} variant="secondary" onPress={() => setTimeField('end')} style={styles.grow} />
-          </View>
-          {timeField ? (
-            <DateTimePicker
-              value={timeToDate(timeField === 'start' ? startTime : endTime)}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'compact' : 'default'}
-              onValueChange={chooseTime}
-              onDismiss={() => setTimeField(null)}
-              themeVariant={theme.colorScheme}
-              accentColor={theme.accent}
-            />
-          ) : null}
-
-          <CategoryPicker
-            value={category}
-            onChange={(value) => {
-              if (value === 'all') return;
-              setCategory(value);
-              const selectedColor = value.categoryType === 'subject'
-                ? subjects.find((subject) => subject.id === value.categoryId)?.color
-                : value.categoryType === 'project'
-                  ? projects.find((project) => project.id === value.categoryId)?.color
-                  : undefined;
-              if (selectedColor) setColor(selectedColor);
-            }}
-          />
-
-          <Typography kind="caption">Lugar (opcional)</Typography>
-          <TextInput
-            accessibilityLabel="Lugar de la clase"
-            maxLength={80}
-            onChangeText={setPlace}
-            placeholder="Por ejemplo, Aula 2.14"
-            placeholderTextColor={theme.muted}
-            style={[styles.input, { backgroundColor: theme.bg, borderColor: theme.line, color: theme.text }]}
-            value={place}
-          />
-
-          <Typography kind="caption">Color</Typography>
-          <View style={styles.colorChoices} accessibilityRole="radiogroup">
-            {categoryColors.map((option, index) => (
-              <Pressable
-                key={option}
-                accessibilityRole="radio"
-                accessibilityLabel={`Color ${index + 1}`}
-                accessibilityState={{ selected: color === option }}
-                onPress={() => setColor(option)}
-                style={[styles.colorChoice, { backgroundColor: option, borderColor: color === option ? theme.text : 'transparent' }]}
+            <View style={[styles.footer, { borderTopColor: theme.line }]}>
+              <ActionButton
+                label={block ? 'Guardar cambios' : weekdays.length > 1 ? `Añadir ${weekdays.length} clases` : 'Añadir clase'}
+                disabled={!canSave}
+                onPress={save}
+                style={!canSave && styles.disabled}
               />
-            ))}
-          </View>
-          <ActionButton label={block ? 'Guardar cambios' : 'Añadir clase'} onPress={save} />
-          {block ? (
-            <Pressable accessibilityRole="button" onPress={confirmDelete} style={styles.delete}>
-              <Typography style={{ color: theme.danger, fontWeight: '700' }}>Eliminar clase</Typography>
-            </Pressable>
-          ) : null}
-        </Surface>
-      </AppScreen>
+            </View>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <View style={styles.field}>
+      <Typography kind="secondary" style={styles.fieldLabel}>{label}</Typography>
+      {children}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  form: { gap: spacing.md },
-  weekdayChoices: { flexDirection: 'row', gap: spacing.xs },
-  weekdayChoice: { flex: 1, minHeight: minTouchSize, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
-  timeChoices: { flexDirection: 'row', gap: spacing.xs },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  keyboard: { maxHeight: '94%' },
+  // flexShrink lets the sheet and its list fit inside the 94% cap, so a long form scrolls while the save button stays put.
+  sheet: { flexShrink: 1, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
+  scroll: { flexShrink: 1 },
+  handle: { width: 36, height: 5, borderRadius: 3, alignSelf: 'center', opacity: 0.45, marginBottom: spacing.md },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  headerCopy: { flex: 1, gap: 2 },
+  close: { width: minTouchSize, height: minTouchSize, borderRadius: minTouchSize / 2, alignItems: 'center', justifyContent: 'center' },
+  form: { gap: spacing.lg, paddingBottom: spacing.lg },
+  field: { gap: spacing.xs },
+  fieldLabel: { fontSize: 14, fontWeight: '600' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  chip: { minHeight: minTouchSize, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radii.chip + 4, borderWidth: 1 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  days: { flexDirection: 'row', gap: spacing.xs },
+  day: { flex: 1, minHeight: minTouchSize, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   grow: { flex: 1 },
-  input: { minHeight: 48, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 16, fontFamily: fonts.medium },
-  colorChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  colorChoice: { width: minTouchSize, height: minTouchSize, borderRadius: minTouchSize / 2, borderWidth: 3 },
+  input: { minHeight: 52, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 17, fontFamily: fonts.medium },
   delete: { minHeight: minTouchSize, alignItems: 'center', justifyContent: 'center' },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  disabled: { opacity: 0.5 },
 });
