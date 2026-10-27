@@ -14,8 +14,11 @@ export const weekdayOptions = [
   { value: 0, short: 'D', name: 'domingo' },
 ] as const;
 
+/** Due on that weekday, and only from the day the routine was created (a new one owes nothing for earlier days). */
 export function isRoutineDue(routine: Routine, day: Date): boolean {
-  return routine.weekdays.includes(day.getDay());
+  const created = new Date(routine.createdAt);
+  const existed = Number.isNaN(created.getTime()) || toDayKey(created) <= toDayKey(day);
+  return existed && routine.weekdays.includes(day.getDay());
 }
 
 export function isRoutineDoneOn(routine: Routine, day: Date): boolean {

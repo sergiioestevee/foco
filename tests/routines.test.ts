@@ -39,6 +39,11 @@ describe('getRoutineWeekStats', () => {
     assert.deepEqual(getRoutineWeekStats(routine(weekdaysOnly, ['2026-10-26']), now), { done: 1, due: 2 });
   });
 
+  test('days before the routine was created are not counted', () => {
+    const createdToday = { ...routine(weekdaysOnly, ['2026-10-27']), createdAt: new Date(2026, 9, 27, 9, 0).toISOString() };
+    assert.deepEqual(getRoutineWeekStats(createdToday, now), { done: 1, due: 1 });
+  });
+
   test('later days of the week are not counted yet', () => {
     assert.deepEqual(getRoutineWeekStats(routine([5], []), now), { done: 0, due: 0 });
   });

@@ -121,12 +121,12 @@ export function createDemoData(now = new Date()): DemoData {
   const routines: Routine[] = [
     {
       id: 'demo-routine-plan', title: 'Plan de mañana', weekdays: [0, 1, 2, 3, 4],
-      time: '22:00', subjectId: null, completedDates: [], createdAt: now.toISOString(),
+      time: '22:00', subjectId: null, completedDates: [], createdAt: addDays(today, -7).toISOString(),
     },
     {
       id: 'demo-routine-notes', title: 'Pasar apuntes a limpio', weekdays: [1, 3, 5],
       time: null, subjectId: subjects[0].id,
-      completedDates: [format(addDays(today, -2), 'yyyy-MM-dd')], createdAt: now.toISOString(),
+      completedDates: [format(addDays(today, -2), 'yyyy-MM-dd')], createdAt: addDays(today, -7).toISOString(),
     },
   ];
 
