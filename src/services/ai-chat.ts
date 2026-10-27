@@ -1,7 +1,7 @@
 import { FunctionsFetchError, FunctionsHttpError } from '@supabase/supabase-js';
 import { addDays, differenceInCalendarDays } from 'date-fns';
 
-import { getFreeWindows, minutesToTime, timeToMinutes, toDayKey } from '@/features/calendar/calendar-utils';
+import { getStudySlots, minutesToTime, timeToMinutes, toDayKey } from '@/features/calendar/calendar-utils';
 import { describeAiAction, resolveAiActions, type RawAiAction } from '@/features/assistant/ai-actions';
 import { getUpcomingExams } from '@/features/exams/exam-utils';
 import type { FocoState } from '@/store/use-foco-store';
@@ -121,22 +121,20 @@ function withPlanSummary(message: Pick<ChatMessage, 'role' | 'content' | 'plan' 
 }
 
 const BLOCK_MINUTES = 60;
-const focusWindows = { morning: [9 * 60, 14 * 60], afternoon: [15 * 60, 20 * 60], night: [19 * 60, 22 * 60] } as const;
 
 /** Offline stand-in used while Supabase isn't configured: a simple plan built from free slots. */
 function demoReply(state: AskSource, now = new Date()): AiReply {
   const exam = getUpcomingExams(state.exams, now).find((item) => item.subjectId);
   const subject = state.subjects.find((item) => item.id === exam?.subjectId)
     ?? [...state.subjects].sort((left, right) => left.order - right.order)[0];
-  const [preferredStart, preferredEnd] = focusWindows[state.profile?.focusTime ?? 'afternoon'];
   const agendaSource = { scheduleBlocks: state.scheduleBlocks, studyBlocks: state.studyBlocks, exams: state.exams, routines: state.routines };
+  const preferences = { focusTime: state.profile?.focusTime ?? null, classTime: state.profile?.classTime ?? null };
 
   const plan: PlanItem[] = [];
   for (let offset = 0; offset < 7 && plan.length < 4; offset += 1) {
     const day = addDays(now, offset);
-    const slot = getFreeWindows(day, agendaSource, now, BLOCK_MINUTES)
-      .map((window) => ({ start: Math.max(timeToMinutes(window.startTime), preferredStart), end: Math.min(timeToMinutes(window.endTime), preferredEnd) }))
-      .find((window) => window.end - window.start >= BLOCK_MINUTES);
+    const slot = getStudySlots(day, agendaSource, now, preferences, BLOCK_MINUTES)
+      .map((window) => ({ start: timeToMinutes(window.startTime), end: timeToMinutes(window.endTime) }))[0];
     if (!slot) continue;
     plan.push({
       date: toDayKey(day),

@@ -1,6 +1,6 @@
 import { addDays, endOfMonth, endOfWeek, format, isSameDay, parse, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 
-import type { Exam, Routine, ScheduleBlock, StudyBlock, Task } from '@/types/models';
+import type { ClassTime, Exam, FocusTime, Routine, ScheduleBlock, StudyBlock, Task } from '@/types/models';
 
 /** Local day as yyyy-MM-dd, the format StudyBlock.date uses. */
 export function toDayKey(date: Date): string {
@@ -108,28 +108,62 @@ const EXAM_MINUTES = 120;
 const ROUTINE_MINUTES = 30;
 
 export type FreeWindow = { startTime: string; endTime: string };
+type Interval = { start: number; end: number };
 
 /**
- * Free time of a day between 09:00 and 22:00, after removing classes, study blocks, exams and
- * timed routines (and, for today, the time already gone). Windows shorter than `minMinutes` are dropped.
+ * Free time of a day between `range` (09:00–22:00 by default), after removing classes, study blocks,
+ * exams, timed routines and any `extraBusy` intervals (and, for today, the time already gone).
+ * Windows shorter than `minMinutes` are dropped.
  */
-export function getFreeWindows(day: Date, source: AgendaSource, now: Date, minMinutes = 30): FreeWindow[] {
-  const busy = getAgenda(day, source)
-    .map((item) => {
+export function getFreeWindows(
+  day: Date,
+  source: AgendaSource,
+  now: Date,
+  minMinutes = 30,
+  { range = { start: DAY_START, end: DAY_END }, extraBusy = [] }: { range?: Interval; extraBusy?: Interval[] } = {},
+): FreeWindow[] {
+  const busy = [
+    ...getAgenda(day, source).map((item) => {
       const start = timeToMinutes(item.startTime);
       const end = item.endTime ? timeToMinutes(item.endTime) : start + (item.type === 'exam' ? EXAM_MINUTES : ROUTINE_MINUTES);
       return { start, end };
-    })
-    .sort((left, right) => left.start - right.start);
+    }),
+    ...extraBusy,
+  ].sort((left, right) => left.start - right.start);
 
-  let cursor = DAY_START;
+  let cursor = range.start;
   if (isSameDay(day, now)) cursor = Math.max(cursor, Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15);
   const windows: FreeWindow[] = [];
-  for (const interval of [...busy, { start: DAY_END, end: DAY_END }]) {
-    const end = Math.min(interval.start, DAY_END);
+  for (const interval of [...busy, { start: range.end, end: range.end }]) {
+    const end = Math.min(interval.start, range.end);
     if (end - cursor >= minMinutes) windows.push({ startTime: minutesToTime(cursor), endTime: minutesToTime(end) });
     cursor = Math.max(cursor, interval.end);
-    if (cursor >= DAY_END) break;
+    if (cursor >= range.end) break;
   }
   return windows;
+}
+
+/** Mañana, tarde and noche as minutes of the day. */
+export const DAY_PERIODS: Record<FocusTime, Interval> = {
+  morning: { start: 8 * 60, end: 14 * 60 },
+  afternoon: { start: 15 * 60, end: 21 * 60 },
+  night: { start: 20 * 60, end: 23 * 60 + 30 },
+};
+
+/**
+ * Free time where the student would actually study: inside their focus period, and outside their
+ * usual class period on weekdays until they add their real classes (which then count instead).
+ * When both periods are the same, they study around class, so the whole day is open.
+ */
+export function getStudySlots(
+  day: Date,
+  source: AgendaSource,
+  now: Date,
+  { focusTime, classTime }: { focusTime: FocusTime | null; classTime: ClassTime | null },
+  minMinutes = 30,
+): FreeWindow[] {
+  const range = focusTime && focusTime !== classTime ? DAY_PERIODS[focusTime] : undefined;
+  const weekday = day.getDay() >= 1 && day.getDay() <= 5;
+  const assumeClass = classTime && classTime !== 'none' && weekday && !source.scheduleBlocks.length;
+  return getFreeWindows(day, source, now, minMinutes, { range, extraBusy: assumeClass ? [DAY_PERIODS[classTime]] : [] });
 }

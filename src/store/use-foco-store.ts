@@ -541,7 +541,7 @@ export const useFocoStore = create<FocoState>()(
     }),
     {
       name: 'foco-local-v1',
-      version: 9,
+      version: 10,
       migrate: (persisted, version) => {
         let state = (persisted ?? {}) as Partial<FocoState>;
         // v2: profile moved from { age, focusGoals } to { studies, focusTime }.
@@ -573,6 +573,8 @@ export const useFocoStore = create<FocoState>()(
         if (version < 8) state = { ...state, tasks: (state.tasks ?? []).map((task) => ({ ...task, dueTime: task.dueTime ?? null })) };
         // v9: reminders per kind (tasks, exams, routines).
         if (version < 9) state = { ...state, settings: { ...initialSettings, ...state.settings } };
+        // v10: profile gained classTime.
+        if (version < 10) state = { ...state, profile: normalizeProfile(state.profile) };
         return state;
       },
       storage: createJSONStorage(() => AsyncStorage),

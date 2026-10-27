@@ -6,12 +6,16 @@ export type CategoryType = 'subject' | 'project';
 export type TaskKind = 'task' | 'delivery' | 'practice' | 'assignment';
 
 export type FocusTime = 'morning' | 'afternoon' | 'night';
+/** When the student usually has class; 'none' if they have no fixed timetable. */
+export type ClassTime = FocusTime | 'none';
 
 export type UserProfile = {
   name: string;
   /** Free text, e.g. "2.º de Ingeniería Informática". */
   studies: string;
   focusTime: FocusTime | null;
+  /** Rough class period asked at sign-up; stands in for the timetable until real classes are added. */
+  classTime: ClassTime | null;
 };
 
 export type CategoryFields = {

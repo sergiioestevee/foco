@@ -27,13 +27,15 @@ import { useFocoStore } from '@/store/use-foco-store';
 import { fonts } from '@/theme/fonts';
 import { useTheme } from '@/theme/use-theme';
 import { categoryColors, minTouchSize, radii, spacing } from '@/theme/tokens';
-import type { FocusTime } from '@/types/models';
+import type { ClassTime, FocusTime } from '@/types/models';
 
 const focusTimeOptions = [
   { value: 'morning', label: 'Mañana' },
   { value: 'afternoon', label: 'Tarde' },
   { value: 'night', label: 'Noche' },
 ] as const;
+
+const classTimeOptions = [...focusTimeOptions, { value: 'none', label: 'Varía' }] as const;
 
 function subjectKey(name: string) {
   return name.trim().toLocaleLowerCase();
@@ -69,6 +71,7 @@ export default function OnboardingScreen() {
   const [name, setName] = useState(() => profile?.name ?? '');
   const [studies, setStudies] = useState(() => profile?.studies ?? '');
   const [focusTime, setFocusTime] = useState<FocusTime>(() => profile?.focusTime ?? 'afternoon');
+  const [classTime, setClassTime] = useState<ClassTime>(() => profile?.classTime ?? 'morning');
   const [selectedSubjects, setSelectedSubjects] = useState<DefaultSubject[]>(() => [...storedSubjects]
     .sort((left, right) => left.order - right.order)
     .map(({ id: _id, ...subject }) => subject));
@@ -111,7 +114,7 @@ export default function OnboardingScreen() {
 
   const save = () => {
     finishFirstRun(
-      { name: name.trim(), studies: studies.trim(), focusTime },
+      { name: name.trim(), studies: studies.trim(), focusTime, classTime },
       selectedSubjects.map((subject, order) => ({ ...subject, order })),
     );
     if (isEditing && router.canGoBack()) router.back();
@@ -259,11 +262,15 @@ export default function OnboardingScreen() {
                 </View>
               </Field>
 
-              <Field index={4} label="Cuándo te concentras mejor">
+              <Field index={4} label="Cuándo tienes clase">
+                <SegmentedControl options={classTimeOptions} value={classTime} onChange={setClassTime} />
+              </Field>
+
+              <Field index={5} label="Cuándo prefieres estudiar">
                 <SegmentedControl options={focusTimeOptions} value={focusTime} onChange={setFocusTime} />
               </Field>
 
-              <Animated.View entering={enter(5)} style={styles.actions}>
+              <Animated.View entering={enter(6)} style={styles.actions}>
                 <ActionButton
                   label={isEditing ? 'Guardar' : 'Continuar'}
                   disabled={!canContinue}

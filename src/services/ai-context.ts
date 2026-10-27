@@ -1,7 +1,7 @@
 import { addDays, format, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import { getFreeWindows, toDayKey } from '@/features/calendar/calendar-utils';
+import { getStudySlots, toDayKey } from '@/features/calendar/calendar-utils';
 import { getUpcomingExams } from '@/features/exams/exam-utils';
 import { formatWeekdays } from '@/features/routines/routine-utils';
 import { taskKindLabel } from '@/features/tasks/task-kinds';
@@ -14,6 +14,7 @@ const MAX_TASKS = 30;
 const MAX_FREE_SLOTS = 40;
 
 const focusTimeLabels = { morning: 'mañana', afternoon: 'tarde', night: 'noche' } as const;
+const classTimeLabels = { ...focusTimeLabels, none: 'variable' } as const;
 
 type ContextSource = Pick<
   FocoState,
@@ -58,6 +59,7 @@ export function buildAiContext(state: ContextSource, now = new Date()) {
   const items = referencedItems(state, now);
   const blockHorizon = toDayKey(addDays(today, STUDY_BLOCK_DAYS));
   const agendaSource = { scheduleBlocks: state.scheduleBlocks, studyBlocks: state.studyBlocks, exams: state.exams, routines: state.routines };
+  const preferences = { focusTime: state.profile?.focusTime ?? null, classTime: state.profile?.classTime ?? null };
 
   return {
     today: toDayKey(now),
@@ -65,6 +67,7 @@ export function buildAiContext(state: ContextSource, now = new Date()) {
     now: format(now, 'HH:mm'),
     studies: state.profile?.studies || undefined,
     focusTime: state.profile?.focusTime ? focusTimeLabels[state.profile.focusTime] : undefined,
+    classTime: state.profile?.classTime ? classTimeLabels[state.profile.classTime] : undefined,
     subjects: [...state.subjects].sort((left, right) => left.order - right.order).map((subject) => subject.name),
     exams: items.exams.map((exam, index) => ({
       ref: ref('E', index),
@@ -99,8 +102,9 @@ export function buildAiContext(state: ContextSource, now = new Date()) {
       end: block.endTime,
       subject: categoryName(block.categoryType, block.categoryId),
     })),
+    // Only where they'd study: their focus period, minus their usual class time until real classes are added.
     freeSlots: Array.from({ length: FREE_SLOT_DAYS }, (_, index) => addDays(today, index))
-      .flatMap((day) => getFreeWindows(day, agendaSource, now).map((window) => ({ date: toDayKey(day), start: window.startTime, end: window.endTime })))
+      .flatMap((day) => getStudySlots(day, agendaSource, now, preferences).map((window) => ({ date: toDayKey(day), start: window.startTime, end: window.endTime })))
       .slice(0, MAX_FREE_SLOTS),
   };
 }

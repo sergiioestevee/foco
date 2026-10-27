@@ -1,6 +1,7 @@
-import type { FocusTime, UserProfile } from '@/types/models';
+import type { ClassTime, FocusTime, UserProfile } from '@/types/models';
 
 const focusTimes: FocusTime[] = ['morning', 'afternoon', 'night'];
+const classTimes: ClassTime[] = [...focusTimes, 'none'];
 
 /**
  * Accepts any stored profile shape (including the old `{ name, age, focusGoals }`)
@@ -15,5 +16,6 @@ export function normalizeProfile(value: unknown): UserProfile | null {
     name: profile.name,
     studies: typeof profile.studies === 'string' ? profile.studies : '',
     focusTime: focusTimes.includes(profile.focusTime as FocusTime) ? profile.focusTime as FocusTime : null,
+    classTime: classTimes.includes(profile.classTime as ClassTime) ? profile.classTime as ClassTime : null,
   };
 }
