@@ -1,12 +1,12 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { addDays, format, setHours, setMinutes, startOfDay } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { addDays, format, set, setHours, startOfDay } from 'date-fns';
 import { useState, type ReactNode } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { DatePickerButton } from '@/components/date-picker-button';
 import { SymbolIcon } from '@/components/symbol-icon';
+import { TimePickerButton } from '@/components/time-picker-button';
 import { Typography } from '@/components/typography';
 import type { NewExam } from '@/store/use-foco-store';
 import { useFocoStore } from '@/store/use-foco-store';
@@ -37,7 +37,6 @@ export function ExamFormSheet({ exam, onClose }: ExamFormSheetProps) {
   const [date, setDate] = useState(() => exam ? new Date(exam.date) : setHours(addDays(startOfDay(new Date()), 7), 10));
   const [room, setRoom] = useState(exam?.room ?? '');
   const [reviewProgress, setReviewProgress] = useState(exam?.reviewProgress ?? 0);
-  const [picker, setPicker] = useState<'date' | 'time' | null>(null);
   const canSave = title.trim().length > 0;
 
   const save = () => {
@@ -110,38 +109,19 @@ export function ExamFormSheet({ exam, onClose }: ExamFormSheetProps) {
               </Field>
 
               <Field label="Fecha y hora">
-                <View style={styles.row}>
-                  <ActionButton
-                    label={format(date, "EEEE d 'de' MMMM", { locale: es })}
-                    variant="secondary"
-                    icon={<SymbolIcon ios="calendar" other="calendar_today" color={theme.accent} size={18} />}
-                    onPress={() => setPicker(picker === 'date' ? null : 'date')}
-                    style={styles.grow}
-                  />
-                  <ActionButton
-                    label={format(date, 'HH:mm')}
-                    variant="secondary"
-                    icon={<SymbolIcon ios="clock" other="schedule" color={theme.accent} size={18} />}
-                    onPress={() => setPicker(picker === 'time' ? null : 'time')}
-                  />
-                </View>
-                {picker ? (
-                  <DateTimePicker
-                    value={date}
-                    mode={picker}
-                    display={Platform.OS === 'ios' ? (picker === 'date' ? 'inline' : 'spinner') : 'default'}
-                    minuteInterval={5}
-                    onValueChange={(_event, value) => {
-                      setDate(picker === 'date'
-                        ? setMinutes(setHours(value, date.getHours()), date.getMinutes())
-                        : value);
-                      if (Platform.OS === 'android') setPicker(null);
-                    }}
-                    onDismiss={() => setPicker(null)}
-                    themeVariant={theme.colorScheme}
-                    accentColor={theme.accent}
-                  />
-                ) : null}
+                <DatePickerButton
+                  value={date}
+                  onChange={(day) => setDate((current) => set(current, { year: day.getFullYear(), month: day.getMonth(), date: day.getDate() }))}
+                  title="Día del examen"
+                />
+                <TimePickerButton
+                  value={format(date, 'HH:mm')}
+                  onChange={(time) => {
+                    const [hours, minutes] = time.split(':').map(Number);
+                    setDate((current) => set(current, { hours, minutes }));
+                  }}
+                  title="Hora del examen"
+                />
               </Field>
 
               <Field label="Aula (opcional)">
@@ -241,7 +221,6 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   input: { minHeight: 52, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 17, fontFamily: fonts.medium },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  grow: { flex: 1 },
   stepper: { width: 52, height: 52, borderRadius: radii.button, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   reviewCenter: { flex: 1, gap: spacing.xs, alignItems: 'center' },
   reviewValue: { fontSize: 22, fontWeight: '800' },

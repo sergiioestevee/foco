@@ -1,13 +1,11 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
 import { useState, type ReactNode } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
 import { SymbolIcon } from '@/components/symbol-icon';
+import { TimePickerButton } from '@/components/time-picker-button';
 import { Typography } from '@/components/typography';
-import { timeToMinutes } from '@/features/calendar/calendar-utils';
 import { useFocoStore } from '@/store/use-foco-store';
 import { fonts } from '@/theme/fonts';
 import { useTheme } from '@/theme/use-theme';
@@ -18,12 +16,6 @@ import { weekdayOptions } from './routine-utils';
 
 const WEEKDAYS = [1, 2, 3, 4, 5];
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-
-function timeAsDate(time: string) {
-  const value = new Date();
-  value.setHours(Math.floor(timeToMinutes(time) / 60), timeToMinutes(time) % 60, 0, 0);
-  return value;
-}
 
 export function RoutineFormSheet({ routine, onClose }: { routine: Routine | null; onClose: () => void }) {
   const theme = useTheme();
@@ -37,7 +29,6 @@ export function RoutineFormSheet({ routine, onClose }: { routine: Routine | null
   const [weekdays, setWeekdays] = useState<number[]>(routine?.weekdays ?? WEEKDAYS);
   const [time, setTime] = useState<string | null>(routine ? routine.time : '22:00');
   const [subjectId, setSubjectId] = useState<string | null>(routine?.subjectId ?? null);
-  const [pickerVisible, setPickerVisible] = useState(false);
   const canSave = title.trim().length > 0 && weekdays.length > 0;
   const sameDays = (days: number[]) => days.length === weekdays.length && days.every((day) => weekdays.includes(day));
 
@@ -119,33 +110,11 @@ export function RoutineFormSheet({ routine, onClose }: { routine: Routine | null
                   <Switch
                     accessibilityLabel="A una hora concreta"
                     value={time !== null}
-                    onValueChange={(enabled) => { setTime(enabled ? '22:00' : null); setPickerVisible(false); }}
+                    onValueChange={(enabled) => setTime(enabled ? '22:00' : null)}
                     trackColor={{ true: theme.accent, false: theme.track }}
                   />
                 </View>
-                {time !== null ? (
-                  <ActionButton
-                    label={time}
-                    variant="secondary"
-                    icon={<SymbolIcon ios="clock" other="schedule" color={theme.accent} size={18} />}
-                    onPress={() => setPickerVisible((visible) => !visible)}
-                  />
-                ) : null}
-                {time !== null && pickerVisible ? (
-                  <DateTimePicker
-                    value={timeAsDate(time)}
-                    mode="time"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    minuteInterval={5}
-                    onValueChange={(_event, value) => {
-                      setTime(format(value, 'HH:mm'));
-                      if (Platform.OS === 'android') setPickerVisible(false);
-                    }}
-                    onDismiss={() => setPickerVisible(false)}
-                    themeVariant={theme.colorScheme}
-                    accentColor={theme.accent}
-                  />
-                ) : null}
+                {time !== null ? <TimePickerButton value={time} onChange={setTime} title="Hora de la rutina" /> : null}
               </Field>
 
               {orderedSubjects.length ? (
