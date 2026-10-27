@@ -1,158 +1,151 @@
-<!-- Logo incluido en este repositorio -->
 <p align="center">
-  <img src="assets/foco-icon-dark.png" alt="Logo de Foco" width="144" />
+  <img src="assets/foco-icon-dark.png" width="140" alt="Logo de Foco" />
 </p>
 
 <h1 align="center">Foco</h1>
 
-<p align="center">Organiza tus estudios y proyectos personales con calma, claridad y un plan diario.</p>
-<p align="center">Aplicación móvil creada con Expo, React Native y TypeScript.</p>
+<p align="center">
+  Organiza tus estudios y tus proyectos personales en un solo lugar.<br/>
+  Una app para iPhone limpia, elegante y pensada para concentrarte.
+</p>
 
-## Características
+<p align="center">
+  <img src="https://img.shields.io/badge/Expo-SDK-000020?logo=expo" alt="Expo" />
+  <img src="https://img.shields.io/badge/React%20Native-%E2%9C%93-61DAFB?logo=react&logoColor=black" alt="React Native" />
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/estado-en%20desarrollo-lightgrey" alt="Estado" />
+</p>
 
-| Área | Qué puedes hacer |
-| --- | --- |
-| Inicio | Consultar el progreso diario, las tareas de hoy, el siguiente bloque del horario y un objetivo destacado. |
-| Tareas | Crear, editar, completar y filtrar tareas por fecha, prioridad, asignatura, proyecto u objetivo. |
-| Asignaturas | Gestionar asignaturas, sus colores y su orden. |
-| Objetivos y proyectos | Definir objetivos y gestionar proyectos personales con tareas y progreso. |
-| Horario | Crear bloques semanales de estudio o proyectos y consultar el horario de hoy o de la semana. |
-| Asistente | Recibir sugerencias locales o conectar un backend propio. Las propuestas se aceptan antes de guardarse. |
-| Personalización | Elegir tema del sistema, claro u oscuro; configurar recordatorios y preferencias de progreso. |
-| Datos de ejemplo | Cargar datos para probar la app durante el desarrollo. |
+---
 
-El estado se guarda localmente en el dispositivo con Zustand y AsyncStorage. No hace falta crear una cuenta.
+## ✨ Características
 
-## Tecnologías
+| | |
+|---|---|
+| ✅ **Tareas** | Con fecha límite, prioridad y notas. Se añaden en un par de toques. |
+| 🎯 **Objetivos** | Con progreso calculado automáticamente según sus tareas. |
+| 🗓️ **Horario** | Vista semanal y vista de hoy para clases y bloques de estudio. |
+| 📘 **Asignaturas** | Configurables, con menú desplegable nativo. |
+| 🚀 **Proyectos personales** | Con su propia lista de tareas y seguimiento. |
+| 📊 **Progreso diario** | Porcentaje de tareas del día completadas, en tiempo real. |
+| 🤖 **Asistente de IA** | Propone planes de estudio, divide objetivos en tareas y organiza tu semana. |
+| 🌗 **Tema claro y oscuro** | Diseño minimalista, legible y accesible. |
+| 🔔 **Recordatorios** | Notificaciones locales para fechas límite. |
 
-- Expo SDK 57, React Native 0.86 y TypeScript.
-- Expo Router para rutas y pestañas.
-- Zustand persistido en AsyncStorage.
-- expo-notifications para recordatorios locales.
-- expo-haptics, react-native-svg, React Native Reanimated y date-fns.
-- Selectores nativos de fecha y categoría compatibles con Expo Go.
+## 📸 Capturas
 
-## Requisitos
+> Próximamente.
 
-- Node.js 22.13 o posterior y npm.
-- Para ejecutar el simulador o compilar iOS localmente: macOS, Xcode compatible con Expo SDK 57 y un simulador de iOS. Consulta los [requisitos de Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/) antes de actualizar Xcode.
-- Para Expo Go: un iPhone o dispositivo Android con Expo Go instalado.
+## 🛠️ Tecnologías
 
-## Empezar
+- [Expo](https://expo.dev) y [React Native](https://reactnative.dev)
+- [TypeScript](https://www.typescriptlang.org) en modo estricto
+- [Expo Router](https://docs.expo.dev/router/introduction/) para la navegación
+- [Zustand](https://zustand-demo.pmnd.rs) con persistencia en AsyncStorage
+- [expo-notifications](https://docs.expo.dev/versions/latest/sdk/notifications/) para los recordatorios
+- [React Native Reanimated](https://docs.swmansion.com/react-native-reanimated/) y [react-native-svg](https://github.com/software-mansion/react-native-svg) para animaciones y gráficos de progreso
+- [expo-haptics](https://docs.expo.dev/versions/latest/sdk/haptics/) para la respuesta háptica
 
-Instala las dependencias:
+## 📋 Requisitos
 
-~~~bash
+- [Node.js](https://nodejs.org) 18 o superior
+- npm (o yarn / pnpm)
+- Un iPhone con la app **Expo Go**, o bien:
+  - Un Mac con **Xcode** y el simulador de iOS (para el development build)
+  - O una cuenta de [EAS](https://expo.dev/eas) para compilar en la nube
+
+## 🚀 Puesta en marcha
+
+```bash
+# 1. Clona el repositorio
+git clone https://github.com/<tu-usuario>/foco.git
+cd foco
+
+# 2. Instala las dependencias
 npm install
-~~~
 
-Arranca Expo:
-
-~~~bash
+# 3. Arranca el proyecto
 npx expo start
-~~~
+```
 
-Escanea el código QR con Expo Go. En macOS, pulsa i para abrir el simulador de iOS; para Android, ejecuta npx expo start --android.
+Escanea el código QR con la cámara del iPhone para abrir la app en **Expo Go**, o pulsa `i` en la terminal para abrirla en el simulador de iOS.
 
-Comandos disponibles:
+### Development build
 
-~~~bash
-npm run ios       # inicia Expo y abre el simulador de iOS
-npm run android   # inicia Expo y abre Android
-npm run web       # inicia la versión web
-npm run lint      # ejecuta ESLint mediante Expo
-npm run typecheck # comprueba TypeScript sin emitir archivos
-~~~
+Algunas funciones, como el menú desplegable nativo de iOS, necesitan código nativo que Expo Go no incluye. Para usarlas, genera un development build:
 
-### Expo Go y compilaciones nativas
-
-Las funciones implementadas usan módulos incluidos en Expo Go, incluidos los selectores de fecha y expo-notifications para programar notificaciones locales. No hace falta un development build para probar este flujo local en un dispositivo compatible. Las notificaciones push remotas no están implementadas; Expo Go en Android no las admite. Consulta la [documentación de notificaciones de Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/notifications/).
-
-Para compilar y ejecutar la app nativa localmente en iOS necesitas macOS y Xcode:
-
-~~~bash
+```bash
 npx expo run:ios
-~~~
+```
 
-El comando genera los proyectos nativos cuando hace falta. Este repositorio usa Continuous Native Generation: no guardes cambios manuales dentro de ios/ o android/; configura esos cambios en Expo o mediante config plugins.
+> Requiere un Mac con Xcode. Sin él, puedes compilar en la nube con EAS:
+> `eas build --profile development --platform ios`
 
-## Foco IA
+## 🤖 Asistente de IA
 
-Foco IA llama a un modelo abierto a través de Groq (plan gratuito) desde la Edge Function supabase/functions/foco-ai. La clave es un secreto del servidor (GROQ_API_KEY) y nunca llega a la app. Gemini sigue disponible como alternativa con AI_PROVIDER=gemini y GEMINI_API_KEY.
+Por defecto, Foco usa un **servicio simulado** (mock) para desarrollo, así que puedes probar el asistente sin configurar nada.
 
-- **Sesión**: quien usa Foco sin cuenta entra con una sesión anónima de Supabase, invisible para el usuario.
-- **Límites**: 30 mensajes al día por usuario (FOCO_AI_DAILY_LIMIT) y 1000 al día entre todos (FOCO_AI_GLOBAL_DAILY_LIMIT), para que muchas cuentas anónimas no agoten la clave compartida. Las tablas ai_usage y ai_usage_global tienen RLS activado y no son accesibles desde la app. El mensaje solo se devuelve al cupo si falla la infraestructura (sin red, proveedor caído o saturado), nunca por errores que el usuario pueda provocar; y solo la función puede devolverlo.
-- **Resumen por chat**: la IA mantiene un resumen de cada chat y lo recibe junto a los últimos mensajes, así puede retomar la conversación otro día. Se ve arriba del chat.
-- **Datos enviados**: src/services/ai-context.ts decide qué recibe la IA: asignaturas, exámenes, tareas pendientes, bloques, rutinas, clases y huecos libres. Nunca el nombre, el correo, las notas ni identificadores. Las respuestas se validan en el servidor.
-- **Sin Supabase configurado**: la app responde con una demostración local.
+Para conectar un proveedor de IA real:
 
-### Puesta en marcha
+1. Crea un pequeño backend o una función serverless que guarde tu clave de API y reciba las peticiones de la app.
+2. Define la URL del backend en un archivo `.env`:
 
-1. Crea el proyecto en Supabase (región de la UE) y activa **Allow anonymous sign-ins** y **Allow manual linking**.
-2. Copia .env.example como .env con la Project URL y la Publishable key.
-3. Crea una clave en console.groq.com y guárdala en **Edge Functions → Secrets** como GROQ_API_KEY.
-4. Aplica las migraciones y despliega la función:
+```
+   EXPO_PUBLIC_AI_ENDPOINT=https://tu-backend.example.com/chat
+```
 
-   ~~~bash
-   npx supabase login
-   npx supabase link --project-ref <id-del-proyecto>
-   npx supabase db push         # pide la contraseña de la base de datos
-   npx supabase functions deploy foco-ai
-   ~~~
+3. Activa la implementación real de `AIService` en `src/services/`.
 
-### Pruebas
+> ⚠️ **Nunca pongas la clave de API dentro de la app.** Todo lo que va en el bundle de una app móvil, incluidas las variables `EXPO_PUBLIC_*`, es público y puede extraerse. La clave debe vivir solo en tu backend.
 
-npm run test:logic ejecuta las pruebas de la lógica sin dependencias de React Native (por ahora, la de foco-ai).
+## 🗂️ Estructura del proyecto
 
-## Datos y sincronización
+```
+foco/
+├── assets/              # Logo, iconos y splash
+├── src/
+│   ├── app/             # Rutas (Expo Router)
+│   ├── components/      # Componentes reutilizables
+│   ├── features/        # tasks, goals, schedule, assistant, subjects, projects
+│   ├── store/           # Estado global (Zustand)
+│   ├── services/        # AIService, notificaciones
+│   ├── theme/           # Colores, tipografía y espaciados
+│   ├── utils/
+│   └── types/
+├── app.json
+└── package.json
+```
 
-Foco guarda todo en el dispositivo (Zustand + AsyncStorage) y funciona sin conexión. La sincronización con una cuenta está preparada, pero desactivada: llegará con el inicio de sesión con Apple y Google.
+## 🎨 Diseño
 
-- src/data/sync-engine.ts apunta qué registros cambian (en un almacén aparte, foco-sync-v1) sin tocar las pantallas. Sin almacén remoto configurado, syncNow() no hace nada.
-- src/data/sync-logic.ts contiene la lógica pura: detectar cambios, fusionar con «gana la edición más reciente» y preparar lo pendiente. Al vincular una cuenta se suben todos los datos locales, así que no se pierde nada.
-- Para añadir una entidad sincronizada, regístrala en src/data/entities.ts y en el check de entity de la migración.
+- Paleta sobria en blanco y negro con un único color de acento índigo.
+- Tema claro y oscuro, siguiendo el del sistema o elegido manualmente.
+- Tipografía del sistema, buen contraste y soporte de VoiceOver.
 
-### Supabase
+## 📜 Scripts
 
-El backend elegido es Supabase. El esquema está en supabase/migrations/: una tabla user_records con una fila por registro y usuario.
+| Comando | Descripción |
+|---|---|
+| `npm start` | Inicia el servidor de desarrollo |
+| `npm run ios` | Abre la app en el simulador de iOS |
+| `npm run lint` | Ejecuta el linter |
+| `npm run typecheck` | Comprueba los tipos con TypeScript |
 
-**Row Level Security es obligatorio en todas las tablas.** Cada tabla nueva debe:
+## 🧭 Hoja de ruta
 
-1. Activar RLS: alter table ... enable row level security.
-2. Tener políticas de select, insert, update y delete limitadas a to authenticated y a (select auth.uid()) = user_id.
-3. Revocar los permisos por defecto de anon y authenticated, y conceder solo los necesarios.
+- [x] Estructura, tema y componentes base
+- [ ] Asignaturas y proyectos personales
+- [ ] Tareas y progreso diario
+- [ ] Objetivos
+- [ ] Horario
+- [ ] Asistente de IA
+- [ ] Notificaciones
+- [ ] Widgets y atajos de Siri
 
-Después de cada migración, ejecuta supabase/tests/rls_check.sql: debe devolver cero filas. La app solo usa la clave publicable; la clave service_role nunca va en la app.
+## 🤝 Contribuir
 
-## Estructura
+Las ideas y sugerencias son bienvenidas. Abre un *issue* para comentar qué te gustaría cambiar antes de enviar un *pull request*.
 
-~~~text
-src/
-├── app/           # rutas Expo Router: pestañas, entrada y onboarding
-├── components/    # componentes compartidos
-├── data/          # capa de sincronización (local ahora, Supabase después)
-├── features/      # inicio, tareas, objetivos, perfil y entrada
-├── services/      # asistente, recordatorios y datos de demostración
-├── store/         # estado global y persistencia local
-├── theme/         # colores, espaciado y tema
-├── types/         # modelos TypeScript
-└── utils/         # funciones auxiliares
-assets/            # iconos y splash de Foco para tema claro y oscuro
-supabase/          # migraciones SQL y comprobación de RLS
-~~~
+## 📄 Licencia
 
-## Hoja de ruta
-
-- [x] Estructura, tema y componentes base.
-- [x] Modelos de datos y persistencia local.
-- [x] Asignaturas y proyectos personales.
-- [x] Tareas, filtros y progreso diario.
-- [x] Objetivos vinculados a tareas.
-- [x] Horario semanal y vista de hoy.
-- [x] Asistente con mock local y contrato para backend.
-- [x] Inicio, preferencias, recordatorios y datos de ejemplo.
-- [x] Pulido visual, accesibilidad, documentación y configuración de Git.
-
-## Licencia
-
-Este proyecto se distribuye bajo la licencia MIT. Consulta [LICENSE](LICENSE).
+Distribuido bajo licencia MIT. Consulta el archivo `LICENSE` para más información.
