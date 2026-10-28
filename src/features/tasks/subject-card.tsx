@@ -3,14 +3,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
-import { collapsedLabel, type BoardCard } from '@/features/tasks/task-board';
+import { collapsedLabel, openLabel, type BoardCard } from '@/features/tasks/task-board';
 import { ExamListRow, TaskListRow } from '@/features/tasks/task-list-row';
 import { useTheme } from '@/theme/use-theme';
 import { minTouchSize, radii, spacing } from '@/theme/tokens';
 import type { Exam, Task } from '@/types/models';
-
-/** Tasks shown before «+N más». */
-const VISIBLE_TASKS = 2;
 
 type SubjectCardProps = {
   card: BoardCard;
@@ -19,7 +16,10 @@ type SubjectCardProps = {
   onEditExam: (exam: Exam) => void;
 };
 
-/** One subject (or project, or «Sin asignatura») on the Tareas board. Folded cards show a single line. */
+/**
+ * One subject (or project, or «Sin asignatura») on the Tareas board. Open, it shows its upcoming exams
+ * and important tasks, with the rest behind «+N tareas más»; folded, a single line with «+N» or «Al día».
+ */
 export function SubjectCard({ card, onToggleTask, onEditTask, onEditExam }: SubjectCardProps) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(!card.collapsed);
@@ -31,14 +31,13 @@ export function SubjectCard({ card, onToggleTask, onEditTask, onEditExam }: Subj
   }
   const [showAll, setShowAll] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
-  const { category, pending, completed, exams } = card;
+  const { category, pending, important, others, completed, exams } = card;
 
-  const visibleTasks = showAll ? pending : pending.slice(0, VISIBLE_TASKS);
-  const visibleExams = showAll ? exams : exams.slice(0, 1);
-  const hiddenCount = pending.length - visibleTasks.length + exams.length - visibleExams.length;
-  const status = expanded && pending.length
-    ? `${pending.length} ${pending.length === 1 ? 'pendiente' : 'pendientes'}`
-    : collapsedLabel(card);
+  // Opened by hand with nothing important, it shows everything rather than an empty card.
+  const showEverything = showAll || !important.length;
+  const visibleTasks = showEverything ? pending : important;
+  const hiddenCount = showEverything ? 0 : others.length;
+  const status = expanded ? openLabel(card) : collapsedLabel(card);
 
   return (
     <View style={[styles.card, { backgroundColor: theme.surf, borderColor: theme.line }]}>
@@ -49,21 +48,25 @@ export function SubjectCard({ card, onToggleTask, onEditTask, onEditExam }: Subj
         onPress={() => setExpanded((value) => !value)}
         style={styles.header}>
         <View style={[styles.dot, { backgroundColor: category.color ?? theme.muted }]} />
-        <Typography numberOfLines={1} style={styles.name}>{category.name}</Typography>
+        <View style={styles.nameBox}>
+          <Typography numberOfLines={1} style={styles.name}>{category.name}</Typography>
+        </View>
         <Typography kind="secondary" numberOfLines={1} style={styles.status}>{status}</Typography>
         <SymbolIcon ios={expanded ? 'chevron.up' : 'chevron.down'} other={expanded ? 'expand_less' : 'expand_more'} color={theme.muted} size={14} />
       </Pressable>
 
       {expanded ? (
         <View style={styles.body}>
-          {visibleExams.map((exam) => <ExamListRow key={exam.id} exam={exam} onPress={() => onEditExam(exam)} />)}
+          {exams.map((exam) => <ExamListRow key={exam.id} exam={exam} onPress={() => onEditExam(exam)} />)}
           {visibleTasks.map((task) => (
             <TaskListRow key={task.id} task={task} onToggle={() => onToggleTask(task)} onEdit={() => onEditTask(task)} />
           ))}
           {!pending.length && !exams.length ? <Typography kind="secondary" style={styles.empty}>Todo al día.</Typography> : null}
           {hiddenCount > 0 ? (
             <Pressable accessibilityRole="button" onPress={() => setShowAll(true)} style={styles.link}>
-              <Typography style={[styles.linkText, { color: theme.accent }]}>+{hiddenCount} más</Typography>
+              <Typography style={[styles.linkText, { color: theme.accent }]}>
+                +{hiddenCount} {hiddenCount === 1 ? 'tarea más' : 'tareas más'}
+              </Typography>
             </Pressable>
           ) : null}
           {completed.length ? (
@@ -94,8 +97,13 @@ const styles = StyleSheet.create({
   card: { borderRadius: radii.card, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: spacing.md },
   header: { minHeight: minTouchSize + 8, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  name: { flexShrink: 1, fontSize: 16, fontWeight: '800' },
-  status: { flex: 1, textAlign: 'right', fontSize: 13 },
+  // The name's box takes what's left and may shrink to nothing (minWidth 0), so the name ends in «…»
+  // and the status («+N», «Al día»…) and chevron always stay inside the card. A Text alone can
+  // report its full width on iOS and push them out. The status is capped so an open card's
+  // summary leaves room for the name.
+  nameBox: { flex: 1, flexShrink: 1, minWidth: 0 },
+  name: { fontSize: 16, fontWeight: '800' },
+  status: { flexShrink: 0, maxWidth: '60%', textAlign: 'right', fontSize: 13 },
   body: { gap: spacing.xs, paddingBottom: spacing.md },
   empty: { fontSize: 14, paddingVertical: spacing.xs },
   link: { minHeight: minTouchSize, justifyContent: 'center' },

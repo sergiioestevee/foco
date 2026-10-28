@@ -1,4 +1,5 @@
-import { addDays, endOfMonth, endOfWeek, format, isSameDay, parse, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
+import { addDays, differenceInCalendarDays, endOfMonth, endOfWeek, format, isSameDay, parse, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import type { ClassTime, Exam, FocusTime, Routine, ScheduleBlock, StudyBlock, Task } from '@/types/models';
 
@@ -9,6 +10,15 @@ export function toDayKey(date: Date): string {
 
 export function fromDayKey(key: string): Date {
   return parse(key, 'yyyy-MM-dd', new Date());
+}
+
+/** «Hoy · martes 27», «Mañana · miércoles 28», then «Jueves 29 de octubre». */
+export function formatDayHeading(day: Date, today = new Date()): string {
+  const offset = differenceInCalendarDays(day, today);
+  if (offset === 0) return `Hoy · ${format(day, 'EEEE d', { locale: es })}`;
+  if (offset === 1) return `Mañana · ${format(day, 'EEEE d', { locale: es })}`;
+  const label = format(day, "EEEE d 'de' MMMM", { locale: es });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 export function timeToMinutes(time: string): number {

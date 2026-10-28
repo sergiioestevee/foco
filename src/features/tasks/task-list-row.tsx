@@ -83,20 +83,29 @@ export function TaskListRow({ task, showCategory = false, onToggle, onEdit }: {
 export function ExamListRow({ exam, showDetails = false, onPress }: { exam: Exam; showDetails?: boolean; onPress: () => void }) {
   const theme = useTheme();
   const subject = useFocoStore((state) => state.subjects.find((item) => item.id === exam.subjectId));
+  // Por fecha has no subject heading, so the exam leads with it: «Examen · Cálculo» over the details.
+  const heading = `Examen · ${subject?.name ?? 'Sin asignatura'}`;
   const label = (showDetails
-    ? [subject?.name, exam.title, format(new Date(exam.date), 'HH:mm'), `${exam.reviewProgress}% repasado`]
+    ? [exam.title, format(new Date(exam.date), 'HH:mm'), `${exam.reviewProgress}% repasado`]
     : [exam.title, formatCountdown(exam.date), `${exam.reviewProgress}% repasado`]
   ).filter(Boolean).join(' · ');
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Examen${subject ? ` de ${subject.name}` : ''}: ${label}`}
+      accessibilityLabel={`${showDetails ? heading : `Examen${subject ? ` de ${subject.name}` : ''}`}: ${label}`}
       accessibilityHint="Abre el examen para editarlo"
       onPress={onPress}
       style={({ pressed }) => [styles.exam, { backgroundColor: `${theme.warn}1F`, opacity: pressed ? 0.75 : 1 }]}>
       <SymbolIcon ios="graduationcap" other="school" color={theme.warn} size={16} />
-      <Typography numberOfLines={1} style={[styles.examText, { color: theme.warn }]}>{label}</Typography>
+      {showDetails ? (
+        <View style={styles.examCopy}>
+          <Typography numberOfLines={1} style={[styles.examText, { color: theme.warn }]}>{heading}</Typography>
+          <Typography kind="caption" numberOfLines={1} style={{ color: theme.warn }}>{label}</Typography>
+        </View>
+      ) : (
+        <Typography numberOfLines={1} style={[styles.examText, { color: theme.warn }]}>{label}</Typography>
+      )}
     </Pressable>
   );
 }
@@ -130,4 +139,5 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
   },
   examText: { flex: 1, fontSize: 14, fontWeight: '700' },
+  examCopy: { flex: 1, gap: 1, paddingVertical: spacing.xs },
 });

@@ -1,5 +1,3 @@
-import { differenceInCalendarDays, format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -10,18 +8,9 @@ import { TodayRoutineRow, TodayTaskRow } from '@/features/home/today-tasks';
 import { spacing } from '@/theme/tokens';
 
 import { AgendaRow } from './agenda-row';
-import { toDayKey, type AgendaItem, type UpcomingDay } from './calendar-utils';
+import { formatDayHeading, toDayKey, type AgendaItem, type UpcomingDay } from './calendar-utils';
 
 const PAGE_DAYS = 14;
-
-/** «Hoy · martes 27», «Mañana · miércoles 28», then «Jueves 29 de octubre». */
-function dayTitle(day: Date, today: Date) {
-  const offset = differenceInCalendarDays(day, today);
-  if (offset === 0) return `Hoy · ${format(day, 'EEEE d', { locale: es })}`;
-  if (offset === 1) return `Mañana · ${format(day, 'EEEE d', { locale: es })}`;
-  const label = format(day, "EEEE d 'de' MMMM", { locale: es });
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
 
 type UpcomingListProps = {
   today: Date;
@@ -39,7 +28,7 @@ export function UpcomingList({ today, getDays, onOpenItem }: UpcomingListProps) 
     <View style={styles.list}>
       {days.length ? days.map(({ day, agenda, tasks, untimedRoutines }) => (
         <View key={toDayKey(day)} style={styles.day}>
-          <Typography kind="heading" style={styles.title}>{dayTitle(day, today)}</Typography>
+          <Typography kind="heading" style={styles.title}>{formatDayHeading(day, today)}</Typography>
           {agenda.map((item) => <AgendaRow key={item.key} item={item} onPress={() => onOpenItem(item)} />)}
           {tasks.map((task) => <TodayTaskRow key={task.id} task={task} />)}
           {untimedRoutines.map((routine) => <TodayRoutineRow key={routine.id} routine={routine} day={day} />)}
