@@ -1,3 +1,5 @@
+import type { AvatarId } from '@/features/profile/avatars';
+
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type ProjectStatus = 'active' | 'paused' | 'finished';
 export type GoalStatus = 'inProgress' | 'achieved' | 'paused';
@@ -8,6 +10,11 @@ export type TaskKind = 'task' | 'delivery' | 'practice' | 'assignment';
 export type FocusTime = 'morning' | 'afternoon' | 'night';
 /** When the student usually has class; 'none' if they have no fixed timetable. */
 export type ClassTime = FocusTime | 'none';
+/**
+ * Outcome of the age question: 14 or older, or under 14 with a parent's or guardian's permission
+ * (Spanish law, LOPDGDD art. 7). The exact age is never stored.
+ */
+export type AgeCheck = 'over14' | 'parentalConsent';
 
 export type UserProfile = {
   name: string;
@@ -16,6 +23,10 @@ export type UserProfile = {
   focusTime: FocusTime | null;
   /** Rough class period asked at sign-up; stands in for the timetable until real classes are added. */
   classTime: ClassTime | null;
+  /** Id from features/profile/avatars; null shows the default one. */
+  avatar: AvatarId | null;
+  /** null until the student answers (profiles from before the question existed). */
+  ageCheck: AgeCheck | null;
 };
 
 export type CategoryFields = {

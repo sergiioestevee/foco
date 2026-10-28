@@ -62,6 +62,8 @@ export type FocoState = {
   hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
   finishFirstRun: (profile: UserProfile, subjects: typeof defaultSubjects) => void;
+  /** Changes part of the profile (e.g. the avatar); does nothing before sign-up. */
+  updateProfile: (changes: Partial<UserProfile>) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   addSubject: (subject: Omit<Subject, 'id'>) => string;
   updateSubject: (id: string, changes: Partial<Omit<Subject, 'id'>>) => void;
@@ -134,6 +136,8 @@ export const useFocoStore = create<FocoState>()(
       hasHydrated: false,
 
       setHasHydrated: (value) => set({ hasHydrated: value }),
+
+      updateProfile: (changes) => set((state) => (state.profile ? { profile: { ...state.profile, ...changes } } : {})),
 
       finishFirstRun: (profile, selectedSubjects) =>
         set((state) => {
@@ -541,7 +545,7 @@ export const useFocoStore = create<FocoState>()(
     }),
     {
       name: 'foco-local-v1',
-      version: 10,
+      version: 11,
       migrate: (persisted, version) => {
         let state = (persisted ?? {}) as Partial<FocoState>;
         // v2: profile moved from { age, focusGoals } to { studies, focusTime }.
@@ -575,6 +579,8 @@ export const useFocoStore = create<FocoState>()(
         if (version < 9) state = { ...state, settings: { ...initialSettings, ...state.settings } };
         // v10: profile gained classTime.
         if (version < 10) state = { ...state, profile: normalizeProfile(state.profile) };
+        // v11: profile gained avatar and ageCheck.
+        if (version < 11) state = { ...state, profile: normalizeProfile(state.profile) };
         return state;
       },
       storage: createJSONStorage(() => AsyncStorage),

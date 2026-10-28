@@ -6,7 +6,8 @@ import { minTouchSize, radii } from '@/theme/tokens';
 
 type SegmentedControlProps<T extends string> = {
   options: readonly { value: T; label: string }[];
-  value: T;
+  /** null leaves every option unselected, for questions without a default answer. */
+  value: T | null;
   onChange: (value: T) => void;
   style?: StyleProp<ViewStyle>;
 };

@@ -18,9 +18,11 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { Avatar, AvatarPicker } from '@/components/avatar';
 import { SegmentedControl } from '@/components/segmented-control';
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
+import { DEFAULT_AVATAR, type AvatarId } from '@/features/profile/avatars';
 import { defaultSubjects, type DefaultSubject } from '@/features/subjects/default-subjects';
 import { requestTaskReminderPermission } from '@/services/notification-service';
 import { useFocoStore } from '@/store/use-foco-store';
@@ -36,6 +38,11 @@ const focusTimeOptions = [
 ] as const;
 
 const classTimeOptions = [...focusTimeOptions, { value: 'none', label: 'Varía' }] as const;
+
+const ageOptions = [
+  { value: 'yes', label: 'Sí' },
+  { value: 'no', label: 'No' },
+] as const;
 
 function subjectKey(name: string) {
   return name.trim().toLocaleLowerCase();
@@ -72,21 +79,31 @@ export default function OnboardingScreen() {
   const [studies, setStudies] = useState(() => profile?.studies ?? '');
   const [focusTime, setFocusTime] = useState<FocusTime>(() => profile?.focusTime ?? 'afternoon');
   const [classTime, setClassTime] = useState<ClassTime>(() => profile?.classTime ?? 'morning');
-  const [selectedSubjects, setSelectedSubjects] = useState<DefaultSubject[]>(() => [...storedSubjects]
+  const [avatar, setAvatar] = useState<AvatarId>(() => profile?.avatar ?? DEFAULT_AVATAR);
+  const [isPickingAvatar, setIsPickingAvatar] = useState(false);
+  // Spanish law (LOPDGDD art. 7): under 14 needs a parent's or guardian's permission. Only the outcome is kept.
+  const [over14, setOver14] = useState<boolean | null>(() => (profile?.ageCheck ? profile.ageCheck === 'over14' : null));
+  const [parentalConsent, setParentalConsent] = useState(() => profile?.ageCheck === 'parentalConsent');
+  // The student's own subjects as they were when the screen opened; unticking one keeps it on screen.
+  const [ownSubjects] = useState<DefaultSubject[]>(() => [...storedSubjects]
     .sort((left, right) => left.order - right.order)
     .map(({ id: _id, ...subject }) => subject));
+  const [selectedSubjects, setSelectedSubjects] = useState<DefaultSubject[]>(ownSubjects);
   const [customSubjects, setCustomSubjects] = useState<DefaultSubject[]>([]);
   const [isAddingSubject, setIsAddingSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [isRequestingReminders, setIsRequestingReminders] = useState(false);
 
-  // Selected first, then the user's own additions, then suggestions they haven't picked.
-  const visibleSubjects = [...selectedSubjects, ...customSubjects, ...defaultSubjects].reduce<DefaultSubject[]>((list, subject) => {
+  // Selected first, then the user's own additions, then suggestions they haven't picked. Once set up,
+  // editing shows only their own subjects: the suggestions were for the first time.
+  const suggestions = isEditing ? ownSubjects : defaultSubjects;
+  const visibleSubjects = [...selectedSubjects, ...customSubjects, ...suggestions].reduce<DefaultSubject[]>((list, subject) => {
     if (!list.some((item) => subjectKey(item.name) === subjectKey(subject.name))) list.push(subject);
     return list;
   }, []);
   const isSelected = (subject: DefaultSubject) => selectedSubjects.some((item) => subjectKey(item.name) === subjectKey(subject.name));
-  const canContinue = name.trim().length > 0;
+  const ageConfirmed = over14 === true || (over14 === false && parentalConsent);
+  const canContinue = name.trim().length > 0 && ageConfirmed;
 
   const toggleSubject = (subject: DefaultSubject) => {
     setSelectedSubjects((current) => isSelected(subject)
@@ -114,7 +131,7 @@ export default function OnboardingScreen() {
 
   const save = () => {
     finishFirstRun(
-      { name: name.trim(), studies: studies.trim(), focusTime, classTime },
+      { name: name.trim(), studies: studies.trim(), focusTime, classTime, avatar, ageCheck: over14 ? 'over14' : 'parentalConsent' },
       selectedSubjects.map((subject, order) => ({ ...subject, order })),
     );
     if (isEditing && router.canGoBack()) router.back();
@@ -181,18 +198,30 @@ export default function OnboardingScreen() {
               </Animated.View>
 
               <Field index={1} label="Cómo te llamas">
-                <TextInput
-                  accessibilityLabel="Cómo te llamas"
-                  autoCapitalize="words"
-                  autoComplete="given-name"
-                  maxLength={40}
-                  onChangeText={setName}
-                  placeholder="Tu nombre"
-                  placeholderTextColor={theme.muted}
-                  returnKeyType="next"
-                  style={[styles.input, { backgroundColor: theme.surf, borderColor: theme.line, color: theme.text }]}
-                  value={name}
-                />
+                <View style={styles.nameRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Cambiar avatar"
+                    onPress={() => setIsPickingAvatar(true)}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
+                    <Avatar id={avatar} size={52} />
+                    <View style={[styles.avatarBadge, { backgroundColor: theme.accent, borderColor: theme.bg }]}>
+                      <SymbolIcon ios="pencil" other="edit" color={theme.accentInk} size={10} />
+                    </View>
+                  </Pressable>
+                  <TextInput
+                    accessibilityLabel="Cómo te llamas"
+                    autoCapitalize="words"
+                    autoComplete="given-name"
+                    maxLength={40}
+                    onChangeText={setName}
+                    placeholder="Tu nombre"
+                    placeholderTextColor={theme.muted}
+                    returnKeyType="next"
+                    style={[styles.input, styles.nameInput, { backgroundColor: theme.surf, borderColor: theme.line, color: theme.text }]}
+                    value={name}
+                  />
+                </View>
               </Field>
 
               <Field index={2} label="Qué estudias">
@@ -208,13 +237,34 @@ export default function OnboardingScreen() {
                 />
               </Field>
 
-              <Field index={3} label="Tus asignaturas">
+              <Field index={3} label="¿Tienes 14 años o más?">
+                <SegmentedControl
+                  options={ageOptions}
+                  value={over14 === null ? null : over14 ? 'yes' : 'no'}
+                  onChange={(value) => setOver14(value === 'yes')}
+                />
+                {over14 === false ? (
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: parentalConsent }}
+                    onPress={() => setParentalConsent((value) => !value)}
+                    style={[styles.consent, { backgroundColor: theme.surf, borderColor: theme.line }]}>
+                    <View style={[styles.check, parentalConsent ? { backgroundColor: theme.accent, borderColor: theme.accent } : { borderColor: theme.muted }]}>
+                      {parentalConsent ? <SymbolIcon ios="checkmark" other="check" color={theme.accentInk} size={14} /> : null}
+                    </View>
+                    <Typography style={styles.consentText}>Mi padre, madre o tutor sabe que uso Foco y me ha dado permiso.</Typography>
+                  </Pressable>
+                ) : null}
+                <Typography kind="caption">Solo guardamos tu respuesta, no tu edad. Por ley, si tienes menos de 14 años necesitas el permiso de tu familia.</Typography>
+              </Field>
+
+              <Field index={4} label="Tus asignaturas">
                 <View style={styles.chips}>
                   {visibleSubjects.map((subject) => {
                     const selected = isSelected(subject);
                     return (
                       // Selected subjects move to the front; the layout transition glides them there.
-                      <Animated.View key={subjectKey(subject.name)} layout={LinearTransition.springify().damping(18)} entering={FadeIn.duration(250)}>
+                      <Animated.View key={subjectKey(subject.name)} layout={LinearTransition.springify().damping(18)} entering={FadeIn.duration(250)} style={styles.chipCell}>
                         <Pressable
                           accessibilityRole="checkbox"
                           accessibilityLabel={subject.name}
@@ -227,7 +277,7 @@ export default function OnboardingScreen() {
                               : { borderColor: theme.line },
                           ]}>
                           <View style={[styles.chipDot, { backgroundColor: subject.color, opacity: selected ? 1 : 0.5 }]} />
-                          <Typography style={[styles.chipLabel, { color: selected ? theme.text : theme.muted }]}>{subject.name}</Typography>
+                          <Typography numberOfLines={1} style={[styles.chipLabel, { color: selected ? theme.text : theme.muted }]}>{subject.name}</Typography>
                         </Pressable>
                       </Animated.View>
                     );
@@ -262,15 +312,15 @@ export default function OnboardingScreen() {
                 </View>
               </Field>
 
-              <Field index={4} label="Cuándo tienes clase">
+              <Field index={5} label="Cuándo tienes clase">
                 <SegmentedControl options={classTimeOptions} value={classTime} onChange={setClassTime} />
               </Field>
 
-              <Field index={5} label="Cuándo prefieres estudiar">
+              <Field index={6} label="Cuándo prefieres estudiar">
                 <SegmentedControl options={focusTimeOptions} value={focusTime} onChange={setFocusTime} />
               </Field>
 
-              <Animated.View entering={enter(6)} style={styles.actions}>
+              <Animated.View entering={enter(7)} style={styles.actions}>
                 <ActionButton
                   label={isEditing ? 'Guardar' : 'Continuar'}
                   disabled={!canContinue}
@@ -287,7 +337,7 @@ export default function OnboardingScreen() {
                 <Animated.View entering={enter(1)} style={styles.intro}>
                   <Typography accessibilityRole="header" style={styles.title}>¿Te avisamos a tiempo?</Typography>
                   <Typography kind="secondary" style={styles.subtitle}>
-                    Foco te recuerda tus entregas y exámenes antes de que lleguen. Puedes cambiarlo cuando quieras en Perfil.
+                    Foco te recuerda tus entregas y exámenes antes de que lleguen. Puedes cambiarlo cuando quieras desde la campanita de Inicio.
                   </Typography>
                 </Animated.View>
               </View>
@@ -304,6 +354,7 @@ export default function OnboardingScreen() {
           )}
         </Animated.View>
       </ScrollView>
+      <AvatarPicker visible={isPickingAvatar} value={avatar} onChange={setAvatar} onClose={() => setIsPickingAvatar(false)} />
     </View>
   );
 }
@@ -353,7 +404,10 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 14, fontWeight: '600' },
   input: { minHeight: 52, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 17, fontFamily: fonts.medium },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  // A long subject stays inside the screen and its name ends in «…».
+  chipCell: { maxWidth: '100%' },
   chip: {
+    maxWidth: '100%',
     minHeight: minTouchSize,
     flexDirection: 'row',
     alignItems: 'center',
@@ -363,10 +417,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipDot: { width: 8, height: 8, borderRadius: 4 },
-  chipLabel: { fontSize: 16, fontWeight: '600' },
+  chipLabel: { flexShrink: 1, fontSize: 16, fontWeight: '600' },
   addChip: { borderStyle: 'dashed' },
   chipInput: { minWidth: 140, fontSize: 16, fontFamily: fonts.semibold },
   bell: { width: 72, height: 72, borderRadius: radii.card, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md },
   actions: { marginTop: 'auto', gap: spacing.xs },
   disabled: { opacity: 0.5 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  nameInput: { flex: 1 },
+  avatarBadge: { position: 'absolute', right: -2, bottom: -2, width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  consent: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: radii.button, borderWidth: 1 },
+  check: { width: 24, height: 24, borderRadius: 6, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  consentText: { flex: 1, fontSize: 15, lineHeight: 20 },
 });

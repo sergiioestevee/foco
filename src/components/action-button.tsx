@@ -36,7 +36,10 @@ export function ActionButton({
       ]}>
       <View style={styles.content}>
         {icon}
-        <Typography style={{ color: foregroundColor, fontWeight: '700' }}>{label}</Typography>
+        {/* One line always: a long label shrinks a little instead of wrapping. */}
+        <Typography numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.label, { color: foregroundColor }]}>
+          {label}
+        </Typography>
       </View>
     </Pressable>
   );
@@ -45,4 +48,5 @@ export function ActionButton({
 const styles = StyleSheet.create({
   button: { minHeight: Math.max(minTouchSize, 52), borderRadius: radii.button, justifyContent: 'center', paddingHorizontal: spacing.lg },
   content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
+  label: { flexShrink: 1, fontWeight: '700' },
 });

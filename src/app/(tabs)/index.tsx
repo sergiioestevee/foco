@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
 import { PickerPopup } from '@/components/picker-popup';
@@ -42,6 +42,7 @@ export default function HomeScreen() {
   const includeOverdue = useFocoStore((state) => state.settings.includeOverdueInDailyProgress);
   const notificationsEnabled = useFocoStore((state) => state.settings.notificationsEnabled);
   const [showReminders, setShowReminders] = useState(false);
+  const { height: windowHeight } = useWindowDimensions();
 
   const now = new Date();
   const dateLabel = format(now, "EEEE, d 'de' MMMM", { locale: es });
@@ -95,7 +96,10 @@ export default function HomeScreen() {
       </View>
 
       <PickerPopup visible={showReminders} title="Avisos" onClose={() => setShowReminders(false)}>
-        <NotificationSettings />
+        {/* Scrolls inside the popup when it doesn't fit (small iPhones, large text). */}
+        <ScrollView style={{ maxHeight: windowHeight * 0.6 }} bounces={false} showsVerticalScrollIndicator={false}>
+          <NotificationSettings />
+        </ScrollView>
       </PickerPopup>
     </AppScreen>
   );

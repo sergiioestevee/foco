@@ -1,5 +1,5 @@
 import type { AndroidSymbol, SFSymbol } from 'expo-symbols';
-import { Alert, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
@@ -23,7 +23,7 @@ const kinds: KindToggle[] = [
   { key: 'routineReminders', label: 'Rutinas', icon: { ios: 'repeat', other: 'repeat' } },
 ];
 
-/** Reminder preferences: master switch, which kinds, and how early for tasks. Used in the Inicio bell popup and Perfil. */
+/** Reminder preferences: master switch, which kinds, and how early for tasks. Lives in the Inicio bell popup. */
 export function NotificationSettings() {
   const theme = useTheme();
   const settings = useFocoStore((state) => state.settings);
@@ -37,7 +37,12 @@ export function NotificationSettings() {
     try {
       const granted = await requestTaskReminderPermission();
       if (granted) updateSettings({ notificationsEnabled: true });
-      else Alert.alert('Permiso no concedido', 'Activa las notificaciones de Foco en los ajustes del dispositivo para recibir recordatorios.');
+      else {
+        Alert.alert('Permiso no concedido', 'Activa las notificaciones de Foco en los ajustes del iPhone para recibir avisos.', [
+          { text: 'Ahora no', style: 'cancel' },
+          { text: 'Abrir Ajustes', onPress: () => void Linking.openSettings() },
+        ]);
+      }
     } catch {
       Alert.alert('No se pudieron activar', 'Inténtalo de nuevo desde los ajustes del dispositivo.');
     }
