@@ -99,7 +99,7 @@ export function StudyBlockFormSheet({ block, initialDate, onClose }: StudyBlockF
                           onPress={() => setSubjectId(selected ? null : subject.id)}
                           style={[styles.chip, selected ? { backgroundColor: `${subject.color}2E`, borderColor: subject.color } : { borderColor: theme.line }]}>
                           <View style={[styles.dot, { backgroundColor: subject.color }]} />
-                          <Typography style={{ fontWeight: selected ? '700' : '600', color: selected ? theme.text : theme.muted }}>{subject.name}</Typography>
+                          <Typography numberOfLines={1} style={{ flexShrink: 1, fontWeight: selected ? '700' : '600', color: selected ? theme.text : theme.muted }}>{subject.name}</Typography>
                         </Pressable>
                       );
                     })}
@@ -169,7 +169,8 @@ const styles = StyleSheet.create({
   field: { gap: spacing.xs },
   fieldLabel: { fontSize: 14, fontWeight: '600' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  chip: { minHeight: minTouchSize, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radii.chip + 4, borderWidth: 1 },
+  // maxWidth keeps a long subject inside the screen; its name ends in «…».
+  chip: { maxWidth: '100%', minHeight: minTouchSize, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radii.chip + 4, borderWidth: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   input: { minHeight: 52, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 17, fontFamily: fonts.medium },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
