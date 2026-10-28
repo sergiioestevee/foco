@@ -111,7 +111,7 @@ export function TaskFormSheet({ visible, task, defaultGoalId, defaultCategory, o
                 <CategoryPicker value={category} onChange={(value) => { if (value !== 'all') setCategory(value); }} />
               </Field>
 
-              <Field label="Entrega">
+              <Field label="Fecha">
                 <View style={styles.row}>
                   <DatePickerButton
                     value={dueDate}

@@ -1,12 +1,12 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { format, isValid } from 'date-fns';
+import { format, isValid, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useImperativeHandle, useMemo, useState, type Ref } from 'react';
-import { Alert, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AppScreen } from '@/components/app-screen';
 import { CategoryPicker } from '@/components/category-picker';
+import { DatePickerButton } from '@/components/date-picker-button';
 import { ScreenHeader } from '@/components/screen-header';
 import { SummaryCard } from '@/components/summary-card';
 import { Surface } from '@/components/surface';
@@ -61,7 +61,6 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
   const [color, setColor] = useState<string>(categoryColors[0]);
   const [status, setStatus] = useState<ProjectStatus>('active');
   const [targetDate, setTargetDate] = useState<Date | null>(null);
-  const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [goalEditorVisible, setGoalEditorVisible] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [goalTitle, setGoalTitle] = useState('');
@@ -69,7 +68,6 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
   const [goalCategory, setGoalCategory] = useState<CategorySelection>({ categoryId: null, categoryType: null });
   const [goalStatus, setGoalStatus] = useState<GoalStatus>('inProgress');
   const [goalTargetDate, setGoalTargetDate] = useState<Date | null>(null);
-  const [goalDatePickerVisible, setGoalDatePickerVisible] = useState(false);
   const editingProject = projects.find((project) => project.id === editingId);
   const editingGoal = goals.find((goal) => goal.id === editingGoalId);
 
@@ -80,7 +78,6 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
     setColor(project?.color ?? categoryColors[0]);
     setStatus(project?.status ?? 'active');
     setTargetDate(project?.targetDate ? new Date(project.targetDate) : null);
-    setDatePickerVisible(false);
     setEditorVisible(true);
   };
 
@@ -108,7 +105,6 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
       : { categoryId: null, categoryType: null });
     setGoalStatus(goal?.status ?? 'inProgress');
     setGoalTargetDate(goal?.targetDate ? new Date(goal.targetDate) : null);
-    setGoalDatePickerVisible(false);
     setGoalEditorVisible(true);
   };
 
@@ -293,12 +289,16 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
                 return <Pressable key={option.value} accessibilityRole="radio" accessibilityState={{ selected }} onPress={() => setStatus(option.value)} style={[styles.statusChoice, { backgroundColor: selected ? theme.accent : theme.track }]}><Typography style={{ color: selected ? theme.accentInk : theme.text, fontWeight: '600' }}>{option.label}</Typography></Pressable>;
               })}
             </View>
-            <View style={styles.dateRow}>
+            <View style={styles.dateField}>
               <Typography kind="caption">Fecha meta</Typography>
-              <ActionButton label={targetDate ? format(targetDate, 'd MMMM yyyy', { locale: es }) : 'Sin fecha'} variant="secondary" onPress={() => setDatePickerVisible((visible) => !visible)} />
-              {targetDate ? <ActionButton label="Quitar" variant="plain" onPress={() => setTargetDate(null)} /> : null}
+              <DatePickerButton
+                value={targetDate}
+                onChange={(day) => setTargetDate(startOfDay(day))}
+                title="Fecha meta"
+                placeholder="Añadir fecha"
+                onClear={() => setTargetDate(null)}
+              />
             </View>
-            {datePickerVisible ? <DateTimePicker value={targetDate ?? new Date()} mode="date" display={Platform.OS === 'ios' ? 'compact' : 'default'} onValueChange={(_event, date) => { setTargetDate(date); if (Platform.OS === 'android') setDatePickerVisible(false); }} onDismiss={() => setDatePickerVisible(false)} themeVariant={theme.colorScheme} accentColor={theme.accent} /> : null}
             <ActionButton label={editingProject ? 'Guardar cambios' : 'Crear proyecto'} disabled={!name.trim()} onPress={saveProject} />
             {editingProject ? (
               <Pressable accessibilityRole="button" onPress={() => { setEditorVisible(false); removeProject(editingProject); }} style={styles.delete}>
@@ -354,29 +354,16 @@ export function GoalsView({ ref }: { ref?: Ref<CreateHandle<'goal' | 'project'>>
                 );
               })}
             </View>
-            <View style={styles.dateRow}>
+            <View style={styles.dateField}>
               <Typography kind="caption">Fecha meta</Typography>
-              <ActionButton
-                label={goalTargetDate ? format(goalTargetDate, 'd MMMM yyyy', { locale: es }) : 'Sin fecha'}
-                variant="secondary"
-                onPress={() => setGoalDatePickerVisible((visible) => !visible)}
+              <DatePickerButton
+                value={goalTargetDate}
+                onChange={(day) => setGoalTargetDate(startOfDay(day))}
+                title="Fecha meta"
+                placeholder="Añadir fecha"
+                onClear={() => setGoalTargetDate(null)}
               />
-              {goalTargetDate ? <ActionButton label="Quitar" variant="plain" onPress={() => setGoalTargetDate(null)} /> : null}
             </View>
-            {goalDatePickerVisible ? (
-              <DateTimePicker
-                value={goalTargetDate ?? new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                onValueChange={(_event, date) => {
-                  setGoalTargetDate(date);
-                  if (Platform.OS === 'android') setGoalDatePickerVisible(false);
-                }}
-                onDismiss={() => setGoalDatePickerVisible(false)}
-                themeVariant={theme.colorScheme}
-                accentColor={theme.accent}
-              />
-            ) : null}
             <ActionButton label={editingGoal ? 'Guardar cambios' : 'Crear objetivo'} disabled={!goalTitle.trim()} onPress={saveGoal} />
             {editingGoal ? (
               <Pressable accessibilityRole="button" onPress={() => { setGoalEditorVisible(false); removeGoal(editingGoal); }} style={styles.delete}>
@@ -414,5 +401,5 @@ const styles = StyleSheet.create({
   colorChoice: { width: 32, height: 32, borderRadius: 16, borderWidth: 3 },
   statusChoices: { flexDirection: 'row', gap: spacing.xs },
   statusChoice: { flex: 1, minHeight: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xs },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
+  dateField: { gap: spacing.xs },
 });
