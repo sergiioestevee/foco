@@ -122,6 +122,9 @@ function RoutineCard({ routine, onPress }: { routine: Routine; onPress: () => vo
       <View style={styles.week} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         {weekdayOptions.map((option, index) => {
           const day = addDays(weekStart, index);
+          // The row shows the routine's plan for the whole week; days before it existed are faded
+          // (they don't count in «x de y»), but still read as days it's on.
+          const scheduled = routine.weekdays.includes(day.getDay());
           const due = isRoutineDue(routine, day);
           const done = isRoutineDoneOn(routine, day);
           const isToday = isSameDay(day, today);
@@ -133,8 +136,8 @@ function RoutineCard({ routine, onPress }: { routine: Routine; onPress: () => vo
                   styles.weekDot,
                   done
                     ? { backgroundColor: theme.ok, borderColor: theme.ok }
-                    : due
-                      ? { borderColor: theme.muted }
+                    : scheduled
+                      ? { borderColor: theme.muted, opacity: due ? 1 : 0.4 }
                       : { backgroundColor: theme.track, borderColor: theme.track },
                 ]}
               />
