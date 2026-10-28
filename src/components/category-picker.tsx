@@ -2,14 +2,13 @@ import { Picker } from '@react-native-picker/picker';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Surface } from '@/components/surface';
 import { Typography } from '@/components/typography';
 import { useTheme } from '@/theme/use-theme';
 import { spacing } from '@/theme/tokens';
 import type { CategorySelection, CategoryType } from '@/types/models';
 
 import {
-  CategoryQuickCreator,
+  CategoryCreatorSheet,
   selectionFromKey,
   selectionKey,
   useCategoryOptions,
@@ -57,11 +56,7 @@ export function CategoryPicker({ value, onChange, allowAll = false, allowCreate 
           {allowCreate ? <Picker.Item label="＋  Nuevo proyecto…" value="create-project" /> : null}
         </Picker>
       </View>
-      {creatingType ? (
-        <Surface inset style={{ padding: spacing.md }}>
-          <CategoryQuickCreator type={creatingType} onCreated={onCreated} onCancel={() => setCreatingType(null)} />
-        </Surface>
-      ) : null}
+      <CategoryCreatorSheet type={creatingType} onCreated={onCreated} onClose={() => setCreatingType(null)} />
     </View>
   );
 }

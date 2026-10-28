@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
 import { useFocoStore } from '@/store/use-foco-store';
 import { useTheme } from '@/theme/use-theme';
 import { fonts } from '@/theme/fonts';
-import { categoryColors, radii, spacing } from '@/theme/tokens';
+import { categoryColors, minTouchSize, radii, spacing } from '@/theme/tokens';
 import type { CategorySelection, CategoryType } from '@/types/models';
 
 export type PickerValue = CategorySelection | 'all';
@@ -47,14 +49,19 @@ export function getSelectionLabel(value: PickerValue, allLabel: string, subjects
   return collection.find((item) => item.id === value.categoryId)?.name ?? 'Sin categoría';
 }
 
-export function CategoryQuickCreator({
+/**
+ * «Nueva asignatura» / «Nuevo proyecto» as its own bottom sheet (like «Nueva rutina»), opened from a
+ * category picker on top of the form being edited. The new category comes back selected.
+ */
+export function CategoryCreatorSheet({
   type,
   onCreated,
-  onCancel,
+  onClose,
 }: {
-  type: CategoryType;
+  /** null keeps the sheet closed. */
+  type: CategoryType | null;
   onCreated: (selection: CategorySelection) => void;
-  onCancel: () => void;
+  onClose: () => void;
 }) {
   const theme = useTheme();
   const subjects = useFocoStore((state) => state.subjects);
@@ -62,48 +69,91 @@ export function CategoryQuickCreator({
   const addProject = useFocoStore((state) => state.addProject);
   const [name, setName] = useState('');
   const [color, setColor] = useState<string>(categoryColors[0]);
+  // The last type asked for, kept while the sheet slides away so its title doesn't flip.
+  const [shownType, setShownType] = useState<CategoryType>(type ?? 'subject');
+  if (type && type !== shownType) setShownType(type);
+  const isSubject = shownType === 'subject';
+  const noun = isSubject ? 'asignatura' : 'proyecto';
+
+  const close = () => {
+    setName('');
+    setColor(categoryColors[0]);
+    onClose();
+  };
 
   const create = () => {
     const trimmedName = name.trim();
-    if (!trimmedName) return;
-    const id = type === 'subject'
+    if (!trimmedName || !type) return;
+    const id = isSubject
       ? addSubject({ name: trimmedName, color, icon: 'book.closed', order: subjects.length })
       : addProject({ name: trimmedName, description: '', color, icon: 'folder', targetDate: null, status: 'active' });
     onCreated({ categoryId: id, categoryType: type });
+    setName('');
+    setColor(categoryColors[0]);
   };
 
   return (
-    <View style={[styles.quickCreate, { borderColor: theme.line }]}>
-      <Typography kind="caption">Nueva {type === 'subject' ? 'asignatura' : 'proyecto'}</Typography>
-      <TextInput
-        accessibilityLabel={`Nombre de ${type === 'subject' ? 'la asignatura' : 'el proyecto'}`}
-        autoFocus
-        maxLength={50}
-        onChangeText={setName}
-        onSubmitEditing={create}
-        placeholder="Nombre"
-        placeholderTextColor={theme.muted}
-        returnKeyType="done"
-        style={[styles.input, { backgroundColor: theme.bg, borderColor: theme.line, color: theme.text }]}
-        value={name}
-      />
-      <View style={styles.colors} accessibilityLabel="Color">
-        {categoryColors.map((option) => (
-          <Pressable
-            key={option}
-            accessibilityRole="radio"
-            accessibilityLabel={`Color ${option}`}
-            accessibilityState={{ selected: color === option }}
-            onPress={() => setColor(option)}
-            style={[styles.colorChoice, { backgroundColor: option, borderColor: color === option ? theme.text : 'transparent' }]}
-          />
-        ))}
+    <Modal animationType="slide" onRequestClose={close} transparent visible={type !== null}>
+      <View style={[styles.overlay, { backgroundColor: theme.scrim }]}>
+        <Pressable accessibilityLabel="Cerrar" onPress={close} style={StyleSheet.absoluteFill} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <SafeAreaView edges={['bottom']} style={[styles.sheet, { backgroundColor: theme.bg }]}>
+            <View style={[styles.handle, { backgroundColor: theme.muted }]} />
+            <View style={styles.header}>
+              <Typography kind="heading" style={styles.headerTitle}>{isSubject ? 'Nueva asignatura' : 'Nuevo proyecto'}</Typography>
+              <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={close} style={[styles.close, { backgroundColor: theme.track }]}>
+                <SymbolIcon ios="xmark" other="close" color={theme.muted} size={20} />
+              </Pressable>
+            </View>
+
+            <View style={styles.form}>
+              <View style={styles.field}>
+                <Typography kind="secondary" style={styles.fieldLabel}>Nombre</Typography>
+                <TextInput
+                  accessibilityLabel={`Nombre ${isSubject ? 'de la asignatura' : 'del proyecto'}`}
+                  autoFocus
+                  maxLength={50}
+                  onChangeText={setName}
+                  onSubmitEditing={create}
+                  placeholder={isSubject ? 'Ej.: Historia' : 'Ej.: Mi portfolio'}
+                  placeholderTextColor={theme.muted}
+                  returnKeyType="done"
+                  style={[styles.input, { backgroundColor: theme.surf, borderColor: theme.line, color: theme.text }]}
+                  value={name}
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Typography kind="secondary" style={styles.fieldLabel}>Color</Typography>
+                <View style={styles.colors} accessibilityRole="radiogroup">
+                  {categoryColors.map((option, index) => (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`Color ${index + 1}`}
+                      accessibilityState={{ selected: color === option }}
+                      onPress={() => setColor(option)}
+                      style={[styles.colorRing, { borderColor: color === option ? option : 'transparent' }]}>
+                      <View style={[styles.colorDot, { backgroundColor: option }]} />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* How it will look in the lists. */}
+              <View style={[styles.preview, { backgroundColor: `${color}2E`, borderColor: color }]}>
+                <View style={[styles.previewDot, { backgroundColor: color }]} />
+                <Typography numberOfLines={1} style={styles.previewText}>{name.trim() || (isSubject ? 'Tu asignatura' : 'Tu proyecto')}</Typography>
+              </View>
+            </View>
+
+            <View style={[styles.footer, { borderTopColor: theme.line }]}>
+              <ActionButton label={`Crear ${noun}`} onPress={create} disabled={!name.trim()} style={!name.trim() && styles.disabled} />
+            </View>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
       </View>
-      <View style={styles.actions}>
-        <ActionButton label="Cancelar" variant="plain" onPress={onCancel} style={styles.action} />
-        <ActionButton label="Crear" onPress={create} disabled={!name.trim()} style={styles.action} />
-      </View>
-    </View>
+    </Modal>
   );
 }
 
@@ -113,10 +163,22 @@ export function useCategoryPickerValueLabel(value: PickerValue, allLabel = 'Toda
 }
 
 const styles = StyleSheet.create({
-  quickCreate: { gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.xs, paddingTop: spacing.md },
-  input: { minHeight: 46, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 16, fontFamily: fonts.medium },
-  colors: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  colorChoice: { width: 26, height: 26, borderRadius: 13, borderWidth: 2 },
-  actions: { flexDirection: 'row', gap: spacing.xs },
-  action: { flex: 1 },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
+  handle: { width: 36, height: 5, borderRadius: 3, alignSelf: 'center', opacity: 0.45, marginBottom: spacing.md },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  headerTitle: { flex: 1 },
+  close: { width: minTouchSize, height: minTouchSize, borderRadius: minTouchSize / 2, alignItems: 'center', justifyContent: 'center' },
+  form: { gap: spacing.lg, paddingBottom: spacing.lg },
+  field: { gap: spacing.xs },
+  fieldLabel: { fontSize: 14, fontWeight: '600' },
+  input: { minHeight: 52, borderWidth: 1, borderRadius: radii.button, paddingHorizontal: spacing.md, fontSize: 17, fontFamily: fonts.medium },
+  colors: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  colorRing: { width: minTouchSize, height: minTouchSize, borderRadius: minTouchSize / 2, borderWidth: 2.5, alignItems: 'center', justifyContent: 'center' },
+  colorDot: { width: 30, height: 30, borderRadius: 15 },
+  preview: { alignSelf: 'flex-start', maxWidth: '100%', minHeight: minTouchSize, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radii.chip + 4, borderWidth: 1 },
+  previewDot: { width: 8, height: 8, borderRadius: 4 },
+  previewText: { flexShrink: 1, fontWeight: '700' },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  disabled: { opacity: 0.5 },
 });
