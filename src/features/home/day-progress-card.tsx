@@ -25,10 +25,18 @@ export function DayProgressCard({ completed, total, nextTitle }: DayProgressCard
       <View style={styles.copy}>
         <Typography allowFontScaling={false} style={styles.percent}>{percent}%</Typography>
         <Typography style={styles.label}>del día completado</Typography>
-        <Typography kind="secondary" style={styles.hint}>{getHint(completed, total, nextTitle)}</Typography>
+        <Typography kind="secondary" numberOfLines={3} style={styles.hint}>{getHint(completed, total, nextTitle)}</Typography>
       </View>
     </Surface>
   );
+}
+
+/** Longest task name quoted in the hint; longer ones end in «…» so the card keeps its size and the % stays visible. */
+const MAX_HINT_TITLE = 28;
+
+function shorten(title: string) {
+  const trimmed = title.trim();
+  return trimmed.length > MAX_HINT_TITLE ? `${trimmed.slice(0, MAX_HINT_TITLE - 1).trimEnd()}…` : trimmed;
 }
 
 function getHint(completed: number, total: number, nextTitle: string | undefined) {
@@ -36,7 +44,7 @@ function getHint(completed: number, total: number, nextTitle: string | undefined
   const summary = `${completed} de ${total} hechas.`;
   if (completed === total) return `${summary} Día completado, buen trabajo.`;
   if (!nextTitle) return summary;
-  return `${summary} Con «${nextTitle}» llegas al ${toPercent({ completed: completed + 1, total })}%.`;
+  return `${summary} Con «${shorten(nextTitle)}» llegas al ${toPercent({ completed: completed + 1, total })}%.`;
 }
 
 const styles = StyleSheet.create({
