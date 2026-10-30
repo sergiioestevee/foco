@@ -62,7 +62,10 @@ export function signInWithGoogle(): Promise<GoogleSignInResult> {
     if (!supabase) return null;
     const { data } = await supabase.auth.getSession();
     if (!data.session?.user.is_anonymous) return oauthUrl(redirectTo);
-    const { data: link, error } = await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo, skipBrowserRedirect: true } });
+    const { data: link, error } = await supabase.auth.linkIdentity({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
+    });
     if (error) throw new Error(error.code === 'manual_linking_disabled' ? LINKING_DISABLED : FAILED);
     return link.url;
   });
@@ -73,8 +76,9 @@ export function signInWithExistingGoogle(): Promise<GoogleSignInResult> {
   return runOAuth(oauthUrl);
 }
 
+/** Signs out of this iPhone only; other devices on the same account stay signed in. */
 export async function signOut(): Promise<void> {
   if (!supabase) return;
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
   if (error) throw new Error('No se pudo cerrar la sesión. Inténtalo de nuevo.');
 }

@@ -21,6 +21,8 @@ export function parseAuthCallback(url: string): AuthCallback {
   const errorCode = params.get('error_code');
   if (errorCode === 'identity_already_exists') return { kind: 'identityExists' };
   if (errorCode === 'manual_linking_disabled') return { kind: 'linkingDisabled' };
+  // «Cancel» on Google's own consent page: the student backed out, so no error is shown.
+  if (params.get('error') === 'access_denied') return { kind: 'cancelled' };
   if (params.get('error') || errorCode) {
     return { kind: 'error', message: params.get('error_description') ?? params.get('error') ?? errorCode ?? '' };
   }

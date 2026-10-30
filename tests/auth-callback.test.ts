@@ -25,8 +25,12 @@ describe('parseAuthCallback', () => {
     assert.deepEqual(parseAuthCallback('foco://auth/callback?error_code=manual_linking_disabled'), { kind: 'linkingDisabled' });
   });
 
+  test('cancelling on Google\'s consent page counts as cancelled, not an error', () => {
+    assert.deepEqual(parseAuthCallback('foco://auth/callback?error=access_denied&error_description=The+user+denied'), { kind: 'cancelled' });
+  });
+
   test('any other error keeps its description', () => {
-    assert.deepEqual(parseAuthCallback('foco://auth/callback?error=access_denied&error_description=Nope'), { kind: 'error', message: 'Nope' });
+    assert.deepEqual(parseAuthCallback('foco://auth/callback?error=server_error&error_description=Nope'), { kind: 'error', message: 'Nope' });
   });
 
   test('neither a code nor an error means it was cancelled', () => {
