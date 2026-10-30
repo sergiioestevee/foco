@@ -11,6 +11,7 @@ import { Surface } from '@/components/surface';
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
 import { AiMemorySection } from '@/features/assistant/ai-memory-section';
+import { AccountCard } from '@/features/profile/account-card';
 import { useFocoStore } from '@/store/use-foco-store';
 import { useTheme } from '@/theme/use-theme';
 import { radii, spacing } from '@/theme/tokens';
@@ -101,6 +102,8 @@ export default function ProfileScreen() {
           </Link>
         </View>
       </Surface>
+
+      <AccountCard />
 
       {profile && !profile.ageCheck ? (
         <Surface style={[styles.section, styles.notice, { borderColor: theme.warn }]}>
