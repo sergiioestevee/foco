@@ -1,57 +1,80 @@
-import type { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
+import { parseAuthCallback } from '@/services/auth-callback';
 import { isSupabaseConfigured, supabase } from '@/services/supabase-client';
 
+export type GoogleSignInResult = 'signedIn' | 'cancelled' | 'identityExists';
+
 const callbackPath = 'auth/callback';
+const NOT_CONFIGURED = 'Google estará disponible cuando conectemos Supabase. Puedes seguir sin cuenta.';
+const LINKING_DISABLED = 'Falta activar la vinculación de cuentas en Supabase.';
+const FAILED = 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.';
 
-function getCallbackCode(url: string) {
-  const value = Linking.parse(url).queryParams?.code;
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export async function signInWithGoogle(): Promise<Session | null> {
-  if (!isSupabaseConfigured || !supabase) {
-    throw new Error('Google estará disponible cuando conectemos Supabase. Puedes empezar ahora y guardar tus datos en este dispositivo.');
-  }
-
+/**
+ * Opens Google in the system browser (Supabase OAuth with PKCE) and finishes the session when it
+ * comes back. `getUrl` asks Supabase for the address to open: a sign-in or an identity link.
+ */
+async function runOAuth(getUrl: (redirectTo: string) => Promise<string | null>): Promise<GoogleSignInResult> {
+  if (!isSupabaseConfigured || !supabase) throw new Error(NOT_CONFIGURED);
   const redirectTo = Linking.createURL(callbackPath);
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo,
-      skipBrowserRedirect: true,
-      queryParams: { prompt: 'select_account' },
-    },
-  });
-
-  if (error) throw new Error('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
-  if (!data.url) throw new Error('Google no devolvió un enlace para iniciar sesión.');
+  const url = await getUrl(redirectTo);
+  if (!url) throw new Error(FAILED);
 
   if (Platform.OS === 'web') {
-    if (typeof window === 'undefined') throw new Error('El acceso con Google no está disponible en este entorno.');
-    window.location.assign(data.url);
-    return null;
+    if (typeof window === 'undefined') throw new Error(FAILED);
+    window.location.assign(url);
+    return 'cancelled';
   }
 
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-  if (result.type !== 'success' || !result.url) return null;
+  const result = await WebBrowser.openAuthSessionAsync(url, redirectTo);
+  if (result.type !== 'success' || !result.url) return 'cancelled';
 
-  const code = getCallbackCode(result.url);
-  if (typeof code !== 'string' || !code) {
-    throw new Error('No se pudo completar el regreso desde Google. Vuelve a intentarlo.');
-  }
+  const callback = parseAuthCallback(result.url);
+  if (callback.kind === 'cancelled') return 'cancelled';
+  if (callback.kind === 'identityExists') return 'identityExists';
+  if (callback.kind === 'linkingDisabled') throw new Error(LINKING_DISABLED);
+  if (callback.kind === 'error') throw new Error(FAILED);
 
-  return finishGoogleRedirectCode(code);
+  const { error } = await supabase.auth.exchangeCodeForSession(callback.code);
+  if (error) throw new Error(FAILED);
+  return 'signedIn';
 }
 
-export async function finishGoogleRedirectCode(code: string): Promise<Session> {
-  if (!supabase) throw new Error('Falta configurar el acceso seguro de Foco.');
-  if (!code) throw new Error('No se encontró el código de regreso de Google.');
+async function oauthUrl(redirectTo: string) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
+  });
+  if (error) throw new Error(FAILED);
+  return data.url;
+}
 
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error || !data.session) throw new Error('No se pudo validar la sesión de Google.');
-  return data.session;
+/**
+ * «Continuar con Google». Someone already using Foco without an account has an anonymous session:
+ * Google is linked to it, so they keep the same user (and their Foco IA quota). Otherwise it signs in.
+ * 'identityExists' means that Google account already belongs to another Foco user.
+ */
+export function signInWithGoogle(): Promise<GoogleSignInResult> {
+  return runOAuth(async (redirectTo) => {
+    if (!supabase) return null;
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.user.is_anonymous) return oauthUrl(redirectTo);
+    const { data: link, error } = await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo, skipBrowserRedirect: true } });
+    if (error) throw new Error(error.code === 'manual_linking_disabled' ? LINKING_DISABLED : FAILED);
+    return link.url;
+  });
+}
+
+/** Signs in to the Foco account a Google account already has, leaving the anonymous one. */
+export function signInWithExistingGoogle(): Promise<GoogleSignInResult> {
+  return runOAuth(oauthUrl);
+}
+
+export async function signOut(): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.auth.signOut();
+  if (error) throw new Error('No se pudo cerrar la sesión. Inténtalo de nuevo.');
 }
