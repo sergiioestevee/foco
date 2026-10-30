@@ -6,12 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FocoLogo } from '@/components/foco-logo';
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
+import { useGoogleSignIn } from '@/services/use-google-sign-in';
 import { useTheme } from '@/theme/use-theme';
 import { radii, spacing } from '@/theme/tokens';
 
 export default function AccountScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const google = useGoogleSignIn(() => router.push('/onboarding'));
 
   return (
     <ScrollView
@@ -26,7 +28,7 @@ export default function AccountScreen() {
       </View>
 
       <View style={styles.options}>
-        {/* Sign-in arrives in phase 6, with the official Apple and Google buttons. */}
+        {/* Apple waits for the Apple Developer account; Google already works. */}
         <SignInButton
           label="Continuar con Apple"
           icon={<SymbolIcon ios="lock" other="lock" color={theme.bg} size={20} />}
@@ -34,11 +36,13 @@ export default function AccountScreen() {
           color={theme.bg}
         />
         <SignInButton
-          label="Continuar con Google"
+          label={google.busy ? 'Conectando…' : 'Continuar con Google'}
           icon={<SymbolIcon ios="cloud" other="cloud" color={theme.text} size={20} />}
           backgroundColor={theme.surf}
           borderColor={theme.line}
           color={theme.text}
+          onPress={google.start}
+          busy={google.busy}
         />
 
         <View style={styles.divider}>
@@ -71,13 +75,33 @@ export default function AccountScreen() {
   );
 }
 
-function SignInButton({ label, icon, backgroundColor, borderColor, color }: {
+/** Without onPress it shows as «Pronto» and can't be tapped. */
+function SignInButton({ label, icon, backgroundColor, borderColor, color, onPress, busy = false }: {
   label: string;
   icon: ReactNode;
   backgroundColor: string;
   borderColor?: string;
   color: string;
+  onPress?: () => void;
+  busy?: boolean;
 }) {
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ disabled: busy, busy }}
+        disabled={busy}
+        onPress={onPress}
+        style={({ pressed }) => [styles.signIn, { backgroundColor, borderColor: borderColor ?? backgroundColor, opacity: pressed || busy ? 0.7 : 1 }]}>
+        <View style={styles.signInContent}>
+          {icon}
+          <Typography style={[styles.signInLabel, { color }]}>{label}</Typography>
+        </View>
+      </Pressable>
+    );
+  }
+
   return (
     <View
       accessible
@@ -112,6 +136,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
+  signInContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   signInDisabled: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, opacity: 0.55 },
   signInLabel: { fontSize: 17, fontWeight: '700' },
   soon: { position: 'absolute', right: spacing.md, borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: spacing.xs, paddingVertical: 2, opacity: 0.7 },
