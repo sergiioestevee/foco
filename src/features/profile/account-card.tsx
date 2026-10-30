@@ -1,6 +1,7 @@
 import { Alert, StyleSheet, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
+import { GoogleLogo } from '@/components/google-logo';
 import { Surface } from '@/components/surface';
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
@@ -54,7 +55,7 @@ export function AccountCard() {
           <ActionButton
             label={google.busy ? 'Conectando…' : 'Continuar con Google'}
             variant="secondary"
-            icon={<SymbolIcon ios="cloud" other="cloud" color={theme.accent} size={17} />}
+            icon={<GoogleLogo size={17} />}
             disabled={google.busy}
             onPress={google.start}
           />
