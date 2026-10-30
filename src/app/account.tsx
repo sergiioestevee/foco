@@ -1,9 +1,10 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FocoLogo } from '@/components/foco-logo';
+import { GoogleLogo } from '@/components/google-logo';
 import { SymbolIcon } from '@/components/symbol-icon';
 import { Typography } from '@/components/typography';
 import { useGoogleSignIn } from '@/services/use-google-sign-in';
@@ -13,7 +14,9 @@ import { radii, spacing } from '@/theme/tokens';
 export default function AccountScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const google = useGoogleSignIn(() => router.push('/onboarding'));
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const goToOnboarding = () => router.push(preview === '1' ? { pathname: '/onboarding', params: { preview: '1' } } : '/onboarding');
+  const google = useGoogleSignIn(goToOnboarding);
 
   return (
     <ScrollView
@@ -37,7 +40,7 @@ export default function AccountScreen() {
         />
         <SignInButton
           label={google.busy ? 'Conectando…' : 'Continuar con Google'}
-          icon={<SymbolIcon ios="cloud" other="cloud" color={theme.text} size={20} />}
+          icon={<GoogleLogo size={20} />}
           backgroundColor={theme.surf}
           borderColor={theme.line}
           color={theme.text}
@@ -55,7 +58,7 @@ export default function AccountScreen() {
           accessibilityRole="button"
           accessibilityLabel="Usar sin cuenta"
           accessibilityHint="Se guarda solo en este iPhone. Podrás vincular una cuenta más tarde."
-          onPress={() => router.push('/onboarding')}
+          onPress={goToOnboarding}
           style={({ pressed }) => [styles.localOption, { borderColor: theme.muted, opacity: pressed ? 0.7 : 1 }]}>
           <SymbolIcon ios="iphone" other="smartphone" color={theme.muted} size={20} />
           <View style={styles.localCopy}>

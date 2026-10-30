@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, {
@@ -56,7 +56,9 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const profile = useFocoStore((state) => state.profile);
   const storedSubjects = useFocoStore((state) => state.subjects);
-  const isEditing = useFocoStore((state) => state.hasCompletedFirstRun && state.profile !== null);
+  // Preview («Ver la bienvenida» in Perfil): the full first-run steps, and nothing is saved at the end.
+  const isPreview = useLocalSearchParams<{ preview?: string }>().preview === '1';
+  const isEditing = useFocoStore((state) => !isPreview && state.hasCompletedFirstRun && state.profile !== null);
   const finishFirstRun = useFocoStore((state) => state.finishFirstRun);
   const updateSettings = useFocoStore((state) => state.updateSettings);
 
@@ -130,6 +132,10 @@ export default function OnboardingScreen() {
   };
 
   const save = () => {
+    if (isPreview) {
+      router.dismissTo('/profile');
+      return;
+    }
     finishFirstRun(
       { name: name.trim(), studies: studies.trim(), focusTime, classTime, avatar, ageCheck: over14 ? 'over14' : 'parentalConsent' },
       selectedSubjects.map((subject, order) => ({ ...subject, order })),
@@ -145,6 +151,10 @@ export default function OnboardingScreen() {
   };
 
   const enableReminders = async () => {
+    if (isPreview) {
+      save();
+      return;
+    }
     setIsRequestingReminders(true);
     try {
       updateSettings({ notificationsEnabled: await requestTaskReminderPermission() });

@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import type { AndroidSymbol, SFSymbol } from 'expo-symbols';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
@@ -174,8 +174,15 @@ export default function ProfileScreen() {
       ) : null}
 
       <Surface style={styles.section}>
-        <Typography kind="heading">Empezar desde cero</Typography>
-        <Typography kind="secondary">Vuelve al inicio para probar el onboarding otra vez.</Typography>
+        <Typography kind="heading">La bienvenida</Typography>
+        <Typography kind="secondary">Vuelve a ver la bienvenida y la configuración inicial. No se cambia ni se borra nada.</Typography>
+        <ActionButton
+          label="Ver la bienvenida"
+          variant="secondary"
+          icon={<SymbolIcon ios="sparkles" other="auto_awesome" color={theme.accent} size={16} />}
+          onPress={() => router.push({ pathname: '/welcome', params: { preview: '1' } })}
+        />
+        <Typography kind="secondary">O empieza desde cero: se borran tus datos y configuras Foco de nuevo.</Typography>
         <ActionButton label="Restablecer la app" variant="secondary" onPress={confirmReset} />
       </Surface>
       <AvatarPicker

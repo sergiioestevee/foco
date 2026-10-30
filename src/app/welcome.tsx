@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
@@ -57,7 +57,8 @@ export default function WelcomeScreen() {
     },
   ];
 
-  const goToAccount = () => router.push('/account');
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const goToAccount = () => router.push(preview === '1' ? { pathname: '/account', params: { preview: '1' } } : '/account');
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg, paddingTop: insets.top, paddingBottom: insets.bottom + spacing.md }]}>

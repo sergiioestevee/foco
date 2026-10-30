@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider, useSegments } from 'expo-router';
+import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider, useGlobalSearchParams, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
@@ -28,6 +28,8 @@ export default function RootLayout() {
   const settings = useFocoStore((state) => state.settings);
   const segments = useSegments();
   const isEntryFlow = segments[0] === 'welcome' || segments[0] === 'account' || segments[0] === 'onboarding';
+  // «Ver la bienvenida» in Perfil walks the entry flow with ?preview=1; a set-up user isn't sent home then.
+  const { preview } = useGlobalSearchParams<{ preview?: string }>();
   const [bootMinElapsed, setBootMinElapsed] = useState(false);
   const showBoot = !hasHydrated || !bootMinElapsed;
 
@@ -36,10 +38,10 @@ export default function RootLayout() {
 
     if ((!hasCompletedFirstRun || !profile) && !isEntryFlow) {
       router.replace('/welcome');
-    } else if (hasCompletedFirstRun && profile && (segments[0] === 'welcome' || segments[0] === 'account')) {
+    } else if (hasCompletedFirstRun && profile && preview !== '1' && (segments[0] === 'welcome' || segments[0] === 'account')) {
       router.replace('/');
     }
-  }, [fontsReady, hasCompletedFirstRun, hasHydrated, isEntryFlow, profile, segments]);
+  }, [fontsReady, hasCompletedFirstRun, hasHydrated, isEntryFlow, preview, profile, segments]);
 
   useEffect(() => {
     if (hasHydrated) void startSyncTracking();
