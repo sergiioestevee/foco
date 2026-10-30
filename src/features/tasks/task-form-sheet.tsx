@@ -1,7 +1,7 @@
 import { set } from 'date-fns';
 import type { AndroidSymbol, SFSymbol } from 'expo-symbols';
-import { useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
@@ -59,6 +59,19 @@ export function TaskFormSheet({ visible, task, defaultGoalId, defaultCategory, o
   const [openDetail, setOpenDetail] = useState<'goal' | 'notes' | null>(null);
   const goalTitle = goals.find((goal) => goal.id === goalId)?.title;
   const toggleDetail = (detail: 'goal' | 'notes') => setOpenDetail((current) => (current === detail ? null : detail));
+
+  // Notes are the last field: React Native doesn't scroll a focused input into view, so the form
+  // jumps to the end (no animation, no waiting) as the keyboard starts to rise, again once it's up
+  // and the sheet has shrunk, and while the text grows.
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const [writingNotes, setWritingNotes] = useState(false);
+  const showNotes = () => scrollRef.current?.scrollToEnd({ animated: false });
+  useEffect(() => {
+    if (!writingNotes) return;
+    const subscriptions = ['keyboardWillShow', 'keyboardDidShow'].map((event) =>
+      Keyboard.addListener(event as 'keyboardWillShow' | 'keyboardDidShow', showNotes));
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, [writingNotes]);
   const canSave = title.trim().length > 0;
 
   const save = () => {
@@ -93,7 +106,7 @@ export function TaskFormSheet({ visible, task, defaultGoalId, defaultCategory, o
               </Pressable>
             </View>
 
-            <ScrollView style={styles.scroll} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <TextInput
                 accessibilityLabel="Título de la tarea"
                 autoFocus={!task}
@@ -189,7 +202,15 @@ export function TaskFormSheet({ visible, task, defaultGoalId, defaultCategory, o
                       autoFocus
                       maxLength={1000}
                       multiline
+                      onBlur={() => setWritingNotes(false)}
                       onChangeText={setNotes}
+                      onContentSizeChange={() => {
+                        if (writingNotes) showNotes();
+                      }}
+                      onFocus={() => {
+                        setWritingNotes(true);
+                        showNotes();
+                      }}
                       placeholder="Añade algún detalle si lo necesitas"
                       placeholderTextColor={theme.muted}
                       style={[styles.notesInput, { backgroundColor: theme.bg, borderColor: theme.line, color: theme.text }]}
